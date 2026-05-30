@@ -1,0 +1,13 @@
+[Unit]
+Description=Esurfing-go WebUI Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/esurfing-go-webui -c /etc/esurfing-webui/config.json
+WorkingDirectory=/var/lib/esurfing-webui
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
