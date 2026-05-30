@@ -19,6 +19,9 @@ import (
 //go:embed web
 var webFS embed.FS
 
+// version is set at build time via -ldflags "-X main.version=..."
+var version = "dev"
+
 func main() {
 	var (
 		configPath = flag.String("c", "esurfing_data/config.json", "config file path")

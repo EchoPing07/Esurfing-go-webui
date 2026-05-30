@@ -27,4 +27,4 @@ go.work.sum
 config.json
 *.json
 !web/**
-data/
+esurfing_data/

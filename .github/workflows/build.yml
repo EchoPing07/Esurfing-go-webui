@@ -20,7 +20,7 @@ jobs:
             VERSION="${TAG#v}"
           else
             TAG="dev"
-            VERSION="0.0.0-dev"
+            VERSION="0.0.0"
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
@@ -112,7 +112,7 @@ jobs:
           path: dist/esurfing-go-webui-*
 
       - name: Build Deb Package
-        if: matrix.deb_arch != ''
+        if: ${{ matrix.deb_arch != '' }}
         run: |
           VERSION="${{ needs.version.outputs.version }}"
           ARCH="${{ matrix.deb_arch }}"
@@ -163,14 +163,14 @@ jobs:
           dpkg-deb --root-owner-group --build "${PKG_DIR}" "dist/${PKG_NAME}.deb"
 
       - name: Upload Deb Artifacts
-        if: matrix.deb_arch != ''
+        if: ${{ matrix.deb_arch != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.deb_arch }}
           path: dist/*.deb
 
       - name: Build Opkg Package
-        if: matrix.opkg_arch != ''
+        if: ${{ matrix.opkg_arch != '' }}
         run: |
           VERSION="${{ needs.version.outputs.version }}"
           ARCH="${{ matrix.opkg_arch }}"
@@ -222,7 +222,7 @@ jobs:
           ar rcs "dist/${PKG_NAME}.ipk" debian-binary data.tar.gz control.tar.gz
 
       - name: Upload Opkg Artifacts
-        if: matrix.opkg_arch != ''
+        if: ${{ matrix.opkg_arch != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: opkg-${{ matrix.opkg_arch }}
