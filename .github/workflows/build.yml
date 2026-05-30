@@ -3,6 +3,11 @@ on:
   release:
     types: [created]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (e.g. 1.0.0). Leave empty for auto-detect.'
+        required: false
+        default: ''
 
 jobs:
   version:
@@ -15,7 +20,11 @@ jobs:
       - name: Get Version
         id: getver
         run: |
-          if [ "${{ github.ref_type }}" = "tag" ]; then
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          if [ -n "${INPUT_VERSION}" ]; then
+            VERSION="${INPUT_VERSION}"
+            TAG="v${VERSION}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
             TAG="${{ github.ref_name }}"
             VERSION="${TAG#v}"
           else
@@ -30,6 +39,7 @@ jobs:
     needs: [version]
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           # Linux
@@ -202,20 +212,24 @@ jobs:
           Installed-Size: ${INSTALLED_SIZE}
           EOF
 
-          echo '#!/bin/sh' > "${IPK_DIR}/control/postinst"
-          echo '/etc/init.d/esurfing-go-webui enable' >> "${IPK_DIR}/control/postinst"
-          echo '/etc/init.d/esurfing-go-webui start' >> "${IPK_DIR}/control/postinst"
+          cat > "${IPK_DIR}/control/postinst" <<'SCRIPT'
+          #!/bin/sh
+          /etc/init.d/esurfing-go-webui enable
+          /etc/init.d/esurfing-go-webui start
+          SCRIPT
           chmod 755 "${IPK_DIR}/control/postinst"
 
-          echo '#!/bin/sh' > "${IPK_DIR}/control/prerm"
-          echo '/etc/init.d/esurfing-go-webui stop' >> "${IPK_DIR}/control/prerm"
-          echo '/etc/init.d/esurfing-go-webui disable' >> "${IPK_DIR}/control/prerm"
+          cat > "${IPK_DIR}/control/prerm" <<'SCRIPT'
+          #!/bin/sh
+          /etc/init.d/esurfing-go-webui stop
+          /etc/init.d/esurfing-go-webui disable
+          SCRIPT
           chmod 755 "${IPK_DIR}/control/prerm"
 
           cd "${IPK_DIR}/data"
           tar -czf "${WORK_DIR}/data.tar.gz" .
-          cd "${IPK_DIR}/control"
-          tar -czf "${WORK_DIR}/control.tar.gz" .
+          cd "${WORK_DIR}/${IPK_DIR}/control"
+          tar -czf "${WORK_DIR}/control.tar.gz" control postinst prerm
           cd "${WORK_DIR}"
 
           echo "2.0" > debian-binary
