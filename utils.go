@@ -128,9 +128,8 @@ func FormatEConfig(data []byte) ([]byte, error) {
 
 // NewHttpTransport 根据配置创建HTTP传输层，支持绑定指定网络接口
 func NewHttpTransport(c *Config) (http.RoundTripper, error) {
-	if c.BindInterface != "" {
+	if c.BindInterface != "" && c.BindInterface != "sys_default" {
 		ip, err := GetInterfaceIP(c.BindInterface)
-		fmt.Println(c.BindInterface)
 		if err != nil {
 			return nil, errors.New(fmt.Errorf("failed to get interface IP: %w", err).Error())
 		}
@@ -139,20 +138,20 @@ func NewHttpTransport(c *Config) (http.RoundTripper, error) {
 		return &http.Transport{
 			DialContext: (&net.Dialer{
 				LocalAddr: localAddr,
-				Resolver:  GetResolver(c),
+				Resolver:  GetResolver(c, localAddr),
 			}).DialContext,
 		}, nil
 	} else {
 		return &http.Transport{
 			DialContext: (&net.Dialer{
-				Resolver: GetResolver(c),
+				Resolver: GetResolver(c, nil),
 			}).DialContext,
 		}, nil
 	}
 }
 
-// GetResolver 根据配置返回DNS解析器，支持自定义DNS地址
-func GetResolver(c *Config) *net.Resolver {
+// GetResolver 根据配置返回DNS解析器，支持自定义DNS地址和本地地址绑定
+func GetResolver(c *Config, localAddr net.Addr) *net.Resolver {
 	if c.DnsAddress == "" {
 		return net.DefaultResolver
 	}
@@ -161,7 +160,8 @@ func GetResolver(c *Config) *net.Resolver {
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			d := net.Dialer{
-				Timeout: 5 * time.Second,
+				Timeout:   5 * time.Second,
+				LocalAddr: localAddr,
 			}
 			return d.DialContext(ctx, "udp", c.DnsAddress)
 		},
