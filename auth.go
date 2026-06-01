@@ -96,6 +96,9 @@ func (c *Client) GetEConfig() error {
 	if err != nil {
 		return errors.New(err.Error())
 	}
+	if response == nil {
+		return errors.New("nil response from GetEConfig request")
+	}
 
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
@@ -139,6 +142,14 @@ func (c *Client) GetSchoolInfo() error {
 	if err != nil {
 		return errors.New(err.Error())
 	}
+	if response == nil {
+		return errors.New("nil response from GetSchoolInfo request")
+	}
+	defer func(Body io.ReadCloser) {
+		if Body != nil {
+			_ = Body.Close()
+		}
+	}(response.Body)
 
 	if response.Header.Get("domain") != "" && response.Header.Get("area") != "" &&
 		response.Header.Get("schoolid") != "" && response.Header.Get("Location") != "" {
@@ -167,6 +178,9 @@ func (c *Client) GetAlgoId() error {
 	response, err := c.HttpClient.Do(request)
 	if err != nil {
 		return errors.New(err.Error())
+	}
+	if response == nil {
+		return errors.New("nil response from GetAlgoId request")
 	}
 
 	defer func(Body io.ReadCloser) {

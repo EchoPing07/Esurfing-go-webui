@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"io"
 	"time"
 )
@@ -167,6 +168,9 @@ func (c *Client) PostXML(url string, data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if response == nil {
+		return nil, errors.New("nil response from PostXML request")
+	}
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(response.Body)
@@ -197,6 +201,9 @@ func (c *Client) PostXMLWithTimeout(url string, data []byte) ([]byte, error) {
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if response == nil {
+		return nil, errors.New("nil response from PostXMLWithTimeout request")
 	}
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()

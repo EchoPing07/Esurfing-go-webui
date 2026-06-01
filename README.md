@@ -233,6 +233,7 @@ esurfing-go-webui.exe -c config.json
 | macOS | amd64, arm64 |
 
 Deb 包支持：amd64, armhf, arm64
+
 Opkg 包支持：x86_64, arm_cortex-a9, aarch64, mips_24kc, mipsel_24kc
 
 ## 项目结构

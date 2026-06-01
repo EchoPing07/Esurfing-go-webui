@@ -147,6 +147,9 @@ func (c *Client) SendHeartbeat() error {
 	}
 
 	decrypted, err := c.PostXML(c.KeepUrl, stateXML)
+	if err != nil {
+		return errors.New(err.Error())
+	}
 
 	var stateResp StateResponse
 	if err := xml.Unmarshal(decrypted, &stateResp); err != nil {
