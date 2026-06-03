@@ -194,25 +194,16 @@ jobs:
           echo "2.0" > debian-binary
           python3 packaging/make_ipk.py "dist/${PKG_NAME}.ipk" debian-binary data.tar.gz control.tar.gz
 
-          # Verify ipk structure
+          # Verify ipk is valid tar.gz with expected members
           python3 -c "
-          import sys
-          with open('dist/${PKG_NAME}.ipk', 'rb') as f:
-              magic = f.read(8)
-              print(f'Magic: {magic}')
-              assert magic == b'!<arch>\n', 'Bad magic!'
-              for i in range(3):
-                  hdr = f.read(60)
-                  if len(hdr) < 60:
-                      print(f'Entry {i}: TRUNCATED HEADER')
-                      break
-                  name = hdr[0:16].rstrip(b' ')
-                  size = int(hdr[48:58].strip())
-                  magic_end = hdr[58:60]
-                  print(f'Entry {i}: name={name!r} size={size} magic_end={magic_end!r}')
-                  f.read(size)
-                  if size % 2:
-                      f.read(1)
+          import tarfile, sys
+          with tarfile.open('dist/${PKG_NAME}.ipk', 'r:gz') as t:
+              names = t.getnames()
+              print(f'Members: {names}')
+              assert 'debian-binary' in names, 'Missing debian-binary!'
+              assert 'data.tar.gz' in names, 'Missing data.tar.gz!'
+              assert 'control.tar.gz' in names, 'Missing control.tar.gz!'
+          print('IPK structure OK')
           "
 
       - name: Upload Opkg Artifacts
