@@ -186,13 +186,19 @@ jobs:
           chmod 755 "${IPK_DIR}/control/prerm"
 
           cd "${IPK_DIR}/data"
-          tar -czf "${WORK_DIR}/data.tar.gz" --owner=0 --group=0 --transform='s,^\./,,' -C . .
+          tar -czf "${WORK_DIR}/data.tar.gz" --format=gnu --owner=0 --group=0 --transform='s,^\./,,' -C . .
           cd "${WORK_DIR}/${IPK_DIR}/control"
-          tar -czf "${WORK_DIR}/control.tar.gz" --owner=0 --group=0 control postinst prerm
+          tar -czf "${WORK_DIR}/control.tar.gz" --format=gnu --owner=0 --group=0 control postinst prerm
           cd "${WORK_DIR}"
 
           echo "2.0" > debian-binary
           python3 packaging/make_ipk.py "dist/${PKG_NAME}.ipk" debian-binary data.tar.gz control.tar.gz
+
+          # Verify ipk structure
+          echo "=== IPK file info ==="
+          ls -la "dist/${PKG_NAME}.ipk"
+          echo "=== First 120 bytes (hex) ==="
+          xxd -l 120 "dist/${PKG_NAME}.ipk"
 
       - name: Upload Opkg Artifacts
         if: ${{ matrix.opkg_arch != '' }}

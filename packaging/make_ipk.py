@@ -1,39 +1,63 @@
 #!/usr/bin/env python3
-"""Build an OpenWrt .ipk package (ar archive with debian-binary, data.tar.gz, control.tar.gz)."""
+"""Build an OpenWrt .ipk package.
+
+Usage: python3 make_ipk.py <output.ipk> <file1> <file2> ...
+
+An ipk is a GNU ar archive containing:
+  1. debian-binary  (content: "2.0\n")
+  2. data.tar.gz    (the package payload)
+  3. control.tar.gz (package metadata)
+"""
 
 import os
 import sys
-import struct
 
 
-def ar_header(name: bytes, size: int, mtime: int) -> bytes:
-    """Generate a 60-byte ar file header."""
-    return (
-        name.ljust(16, b' ')
-        + str(mtime).encode().ljust(12, b' ')
-        + b'0     0     '         # uid + gid (6+6)
-        + b'100644 '              # mode (8, includes trailing space)
-        + str(size).encode().ljust(10, b' ')
-        + b'`\n'                  # magic: 0x60 + 0x0A
-    )
+def ar_entry(filename: str, data: bytes) -> bytes:
+    """Create a single ar archive entry (header + data + padding)."""
+    name = filename.encode('ascii')
+    size = len(data)
+    mtime = int(os.path.getmtime(filename)) if os.path.exists(filename) else 0
+
+    # ar header: exactly 60 bytes
+    #  Name    (16)  | Mtime (12) | UID (6) | GID (6) | Mode (8) | Size (10) | End (2)
+    hdr = bytearray(60)
+    hdr[0:16]   = name.ljust(16, b' ')
+    hdr[16:28]  = str(mtime).encode().ljust(12, b' ')
+    hdr[28:34]  = b'0     '
+    hdr[34:40]  = b'0     '
+    hdr[40:48]  = b'100644  '
+    hdr[48:58]  = str(size).encode().ljust(10, b' ')
+    hdr[58:60]  = b'\x60\n'
+
+    result = bytes(hdr) + data
+    # ar spec: file data must be 2-byte aligned
+    if size % 2 == 1:
+        result += b'\n'
+    return result
 
 
-def build_ipk(ipk_path: str, files: list[str]) -> None:
-    with open(ipk_path, 'wb') as out:
-        out.write(b'!<arch>\n')
-        for f in files:
-            size = os.path.getsize(f)
-            mtime = int(os.path.getmtime(f))
-            name = os.path.basename(f).encode() + b'/'
-            out.write(ar_header(name, size, mtime))
-            with open(f, 'rb') as inp:
-                out.write(inp.read())
-            if size % 2:
-                out.write(b'\n')
+def main():
+    if len(sys.argv) < 3:
+        print(f"Usage: {sys.argv[0]} <output.ipk> <file1> [file2 ...]")
+        sys.exit(1)
+
+    output = sys.argv[1]
+    files = sys.argv[2:]
+
+    ar_data = b'!<arch>\n'
+    for f in files:
+        with open(f, 'rb') as fh:
+            content = fh.read()
+        entry = ar_entry(f, content)
+        print(f"  Entry: {f} -> data {len(content)} bytes, entry {len(entry)} bytes")
+        ar_data += entry
+
+    with open(output, 'wb') as out:
+        out.write(ar_data)
+
+    print(f"Built: {output} ({len(ar_data)} bytes)")
 
 
 if __name__ == '__main__':
-    ipk_path = sys.argv[1]
-    files = sys.argv[2:]
-    build_ipk(ipk_path, files)
-    print(f"Built: {ipk_path}")
+    main()
