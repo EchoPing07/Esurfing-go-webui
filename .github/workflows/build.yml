@@ -227,9 +227,9 @@ jobs:
           chmod 755 "${IPK_DIR}/control/prerm"
 
           cd "${IPK_DIR}/data"
-          tar -czf "${WORK_DIR}/data.tar.gz" .
+          tar -czf "${WORK_DIR}/data.tar.gz" --transform='s,^\./,,' -C . .
           cd "${WORK_DIR}/${IPK_DIR}/control"
-          tar -czf "${WORK_DIR}/control.tar.gz" control postinst prerm
+          tar -czf "${WORK_DIR}/control.tar.gz" --transform='s,^\./,,' control postinst prerm
           cd "${WORK_DIR}"
 
           echo "2.0" > debian-binary
