@@ -227,13 +227,15 @@ jobs:
           chmod 755 "${IPK_DIR}/control/prerm"
 
           cd "${IPK_DIR}/data"
-          tar -czf "${WORK_DIR}/data.tar.gz" --transform='s,^\./,,' -C . .
+          tar -czf "${WORK_DIR}/data.tar.gz" --owner=0 --group=0 --transform='s,^\./,,' -C . .
           cd "${WORK_DIR}/${IPK_DIR}/control"
-          tar -czf "${WORK_DIR}/control.tar.gz" --transform='s,^\./,,' control postinst prerm
+          tar -czf "${WORK_DIR}/control.tar.gz" --owner=0 --group=0 --transform='s,^\./,,' control postinst prerm
           cd "${WORK_DIR}"
 
           echo "2.0" > debian-binary
-          ar rcs "dist/${PKG_NAME}.ipk" debian-binary data.tar.gz control.tar.gz
+          ar -D -q "dist/${PKG_NAME}.ipk" debian-binary
+          ar -D -q "dist/${PKG_NAME}.ipk" data.tar.gz
+          ar -D -q "dist/${PKG_NAME}.ipk" control.tar.gz
 
       - name: Upload Opkg Artifacts
         if: ${{ matrix.opkg_arch != '' }}
