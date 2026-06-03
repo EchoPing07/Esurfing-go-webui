@@ -3,7 +3,7 @@
 
 Usage: python3 make_ipk.py <output.ipk> <file1> <file2> ...
 
-An ipk is a gzipped tar archive containing:
+An ipk is a gzipped (GNU format) tar archive containing:
   1. debian-binary
   2. data.tar.gz
   3. control.tar.gz
@@ -25,7 +25,7 @@ def main():
     output = sys.argv[1]
     files = sys.argv[2:]
 
-    with tarfile.open(output, 'w:gz') as tar:
+    with tarfile.open(output, 'w:gz', format=tarfile.GNU_FORMAT) as tar:
         for f in files:
             arcname = os.path.basename(f)
             tar.add(f, arcname=arcname)

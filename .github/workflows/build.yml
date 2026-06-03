@@ -177,7 +177,7 @@ jobs:
 
           INSTALLED_SIZE=$(du -sk "${IPK_DIR}/data" | cut -f1)
 
-          printf 'Package: esurfing-go-webui\nVersion: %s\nDepends: libc\nSource: github.com/DreamwareN/Esurfing-go-webui\nSection: net\nArchitecture: %s\nMaintainer: DreamwareN\nDescription: Esurfing campus network authentication client with web UI\nInstalled-Size: %s\n' "${VERSION}" "${ARCH}" "${INSTALLED_SIZE}" > "${IPK_DIR}/control/control"
+          printf 'Package: esurfing-go-webui\nVersion: %s\nDepends: libc\nSource: github.com/DreamwareN/Esurfing-go-webui\nSection: net\nArchitecture: %s\nMaintainer: DreamwareN\nDescription: Esurfing campus network authentication client with web UI\nInstalled-Size: %s\n' "${VERSION}" "all" "${INSTALLED_SIZE}" > "${IPK_DIR}/control/control"
 
           printf '#!/bin/sh\n/etc/init.d/esurfing-go-webui enable\n/etc/init.d/esurfing-go-webui start\n' > "${IPK_DIR}/control/postinst"
           chmod 755 "${IPK_DIR}/control/postinst"
