@@ -195,10 +195,25 @@ jobs:
           python3 packaging/make_ipk.py "dist/${PKG_NAME}.ipk" debian-binary data.tar.gz control.tar.gz
 
           # Verify ipk structure
-          echo "=== IPK file info ==="
-          ls -la "dist/${PKG_NAME}.ipk"
-          echo "=== First 120 bytes (hex) ==="
-          xxd -l 120 "dist/${PKG_NAME}.ipk"
+          python3 -c "
+          import sys
+          with open('dist/${PKG_NAME}.ipk', 'rb') as f:
+              magic = f.read(8)
+              print(f'Magic: {magic}')
+              assert magic == b'!<arch>\n', 'Bad magic!'
+              for i in range(3):
+                  hdr = f.read(60)
+                  if len(hdr) < 60:
+                      print(f'Entry {i}: TRUNCATED HEADER')
+                      break
+                  name = hdr[0:16].rstrip(b' ')
+                  size = int(hdr[48:58].strip())
+                  magic_end = hdr[58:60]
+                  print(f'Entry {i}: name={name!r} size={size} magic_end={magic_end!r}')
+                  f.read(size)
+                  if size % 2:
+                      f.read(1)
+          "
 
       - name: Upload Opkg Artifacts
         if: ${{ matrix.opkg_arch != '' }}
