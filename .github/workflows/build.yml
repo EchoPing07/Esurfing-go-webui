@@ -139,35 +139,12 @@ jobs:
           chmod 755 "${PKG_DIR}/usr/bin/esurfing-go-webui"
           cp "packaging/deb/esurfing-go-webui.service" "${PKG_DIR}/lib/systemd/system/"
 
-          cat > "${PKG_DIR}/DEBIAN/control" <<EOF
-          Package: esurfing-go-webui
-          Version: ${VERSION}
-          Section: net
-          Priority: optional
-          Architecture: ${ARCH}
-          Maintainer: DreamwareN
-          Description: Esurfing campus network authentication client with web UI
-          EOF
+          printf 'Package: esurfing-go-webui\nVersion: %s\nSection: net\nPriority: optional\nArchitecture: %s\nMaintainer: DreamwareN\nDescription: Esurfing campus network authentication client with web UI\n' "${VERSION}" "${ARCH}" > "${PKG_DIR}/DEBIAN/control"
 
-          cat > "${PKG_DIR}/DEBIAN/postinst" <<'POSTINST'
-          #!/bin/sh
-          set -e
-          if [ -d /run/systemd/system ]; then
-            systemctl daemon-reload
-            systemctl enable esurfing-go-webui.service
-            systemctl start esurfing-go-webui.service || true
-          fi
-          POSTINST
+          printf '#!/bin/sh\nset -e\nif [ -d /run/systemd/system ]; then\n  systemctl daemon-reload\n  systemctl enable esurfing-go-webui.service\n  systemctl start esurfing-go-webui.service || true\nfi\n' > "${PKG_DIR}/DEBIAN/postinst"
           chmod 755 "${PKG_DIR}/DEBIAN/postinst"
 
-          cat > "${PKG_DIR}/DEBIAN/prerm" <<'PRERM'
-          #!/bin/sh
-          set -e
-          if [ -d /run/systemd/system ]; then
-            systemctl stop esurfing-go-webui.service || true
-            systemctl disable esurfing-go-webui.service || true
-          fi
-          PRERM
+          printf '#!/bin/sh\nset -e\nif [ -d /run/systemd/system ]; then\n  systemctl stop esurfing-go-webui.service || true\n  systemctl disable esurfing-go-webui.service || true\nfi\n' > "${PKG_DIR}/DEBIAN/prerm"
           chmod 755 "${PKG_DIR}/DEBIAN/prerm"
 
           dpkg-deb --root-owner-group --build "${PKG_DIR}" "dist/${PKG_NAME}.deb"
@@ -200,61 +177,22 @@ jobs:
 
           INSTALLED_SIZE=$(du -sk "${IPK_DIR}/data" | cut -f1)
 
-          cat > "${IPK_DIR}/control/control" <<EOF
-          Package: esurfing-go-webui
-          Version: ${VERSION}
-          Depends: libc
-          Source: github.com/DreamwareN/Esurfing-go-webui
-          Section: net
-          Architecture: ${ARCH}
-          Maintainer: DreamwareN
-          Description: Esurfing campus network authentication client with web UI
-          Installed-Size: ${INSTALLED_SIZE}
-          EOF
+          printf 'Package: esurfing-go-webui\nVersion: %s\nDepends: libc\nSource: github.com/DreamwareN/Esurfing-go-webui\nSection: net\nArchitecture: %s\nMaintainer: DreamwareN\nDescription: Esurfing campus network authentication client with web UI\nInstalled-Size: %s\n' "${VERSION}" "${ARCH}" "${INSTALLED_SIZE}" > "${IPK_DIR}/control/control"
 
-          cat > "${IPK_DIR}/control/postinst" <<'SCRIPT'
-          #!/bin/sh
-          /etc/init.d/esurfing-go-webui enable
-          /etc/init.d/esurfing-go-webui start
-          SCRIPT
+          printf '#!/bin/sh\n/etc/init.d/esurfing-go-webui enable\n/etc/init.d/esurfing-go-webui start\n' > "${IPK_DIR}/control/postinst"
           chmod 755 "${IPK_DIR}/control/postinst"
 
-          cat > "${IPK_DIR}/control/prerm" <<'SCRIPT'
-          #!/bin/sh
-          /etc/init.d/esurfing-go-webui stop
-          /etc/init.d/esurfing-go-webui disable
-          SCRIPT
+          printf '#!/bin/sh\n/etc/init.d/esurfing-go-webui stop\n/etc/init.d/esurfing-go-webui disable\n' > "${IPK_DIR}/control/prerm"
           chmod 755 "${IPK_DIR}/control/prerm"
 
           cd "${IPK_DIR}/data"
           tar -czf "${WORK_DIR}/data.tar.gz" --owner=0 --group=0 --transform='s,^\./,,' -C . .
           cd "${WORK_DIR}/${IPK_DIR}/control"
-          tar -czf "${WORK_DIR}/control.tar.gz" --owner=0 --group=0 --transform='s,^\./,,' control postinst prerm
+          tar -czf "${WORK_DIR}/control.tar.gz" --owner=0 --group=0 control postinst prerm
           cd "${WORK_DIR}"
 
           echo "2.0" > debian-binary
-          cat > /tmp/make_ipk.py << PYEOF
-          import os
-
-          pkg_name = "${PKG_NAME}"
-
-          def make_ar(archive, files):
-              with open(archive, 'wb') as out:
-                  out.write(b'!<arch>\n')
-                  for f in files:
-                      name = os.path.basename(f).encode()
-                      size = os.path.getsize(f)
-                      mtime = int(os.path.getmtime(f))
-                      hdr = name.ljust(16) + str(mtime).encode().ljust(12) + b'0     0     100644 ' + str(size).encode().ljust(10) + b'\x60\n'
-                      out.write(hdr)
-                      with open(f, 'rb') as inp:
-                          out.write(inp.read())
-                      if size % 2:
-                          out.write(b'\n')
-
-          make_ar('dist/' + pkg_name + '.ipk', ['debian-binary', 'data.tar.gz', 'control.tar.gz'])
-          PYEOF
-          python3 /tmp/make_ipk.py
+          python3 packaging/make_ipk.py "dist/${PKG_NAME}.ipk" debian-binary data.tar.gz control.tar.gz
 
       - name: Upload Opkg Artifacts
         if: ${{ matrix.opkg_arch != '' }}
