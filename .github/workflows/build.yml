@@ -233,9 +233,25 @@ jobs:
           cd "${WORK_DIR}"
 
           echo "2.0" > debian-binary
-          ar -D -q "dist/${PKG_NAME}.ipk" debian-binary
-          ar -D -q "dist/${PKG_NAME}.ipk" data.tar.gz
-          ar -D -q "dist/${PKG_NAME}.ipk" control.tar.gz
+          python3 -c "
+          import os, struct, time
+
+          def make_ar(archive, files):
+              with open(archive, 'wb') as out:
+                  out.write(b'!<arch>\n')
+                  for f in files:
+                      name = os.path.basename(f).encode()
+                      size = os.path.getsize(f)
+                      mtime = int(os.path.getmtime(f))
+                      hdr = name.ljust(16) + str(mtime).ljust(12) + b'0     0     100644 ' + str(size).ljust(10) + b'\x60\n'
+                      out.write(hdr)
+                      with open(f, 'rb') as inp:
+                          out.write(inp.read())
+                      if size % 2:
+                          out.write(b'\n')
+
+          make_ar('dist/${PKG_NAME}.ipk', ['debian-binary', 'data.tar.gz', 'control.tar.gz'])
+          "
 
       - name: Upload Opkg Artifacts
         if: ${{ matrix.opkg_arch != '' }}
