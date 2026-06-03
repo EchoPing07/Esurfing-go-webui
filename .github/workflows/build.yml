@@ -233,8 +233,10 @@ jobs:
           cd "${WORK_DIR}"
 
           echo "2.0" > debian-binary
-          cat > /tmp/make_ipk.py << 'PYEOF'
+          cat > /tmp/make_ipk.py << PYEOF
           import os
+
+          pkg_name = "${PKG_NAME}"
 
           def make_ar(archive, files):
               with open(archive, 'wb') as out:
@@ -250,7 +252,7 @@ jobs:
                       if size % 2:
                           out.write(b'\n')
 
-          make_ar('dist/${PKG_NAME}.ipk', ['debian-binary', 'data.tar.gz', 'control.tar.gz'])
+          make_ar('dist/' + pkg_name + '.ipk', ['debian-binary', 'data.tar.gz', 'control.tar.gz'])
           PYEOF
           python3 /tmp/make_ipk.py
 
