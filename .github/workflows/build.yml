@@ -233,8 +233,8 @@ jobs:
           cd "${WORK_DIR}"
 
           echo "2.0" > debian-binary
-          python3 -c "
-          import os, struct, time
+          cat > /tmp/make_ipk.py << 'PYEOF'
+          import os
 
           def make_ar(archive, files):
               with open(archive, 'wb') as out:
@@ -243,7 +243,7 @@ jobs:
                       name = os.path.basename(f).encode()
                       size = os.path.getsize(f)
                       mtime = int(os.path.getmtime(f))
-                      hdr = name.ljust(16) + str(mtime).ljust(12) + b'0     0     100644 ' + str(size).ljust(10) + b'\x60\n'
+                      hdr = name.ljust(16) + str(mtime).encode().ljust(12) + b'0     0     100644 ' + str(size).encode().ljust(10) + b'\x60\n'
                       out.write(hdr)
                       with open(f, 'rb') as inp:
                           out.write(inp.read())
@@ -251,7 +251,8 @@ jobs:
                           out.write(b'\n')
 
           make_ar('dist/${PKG_NAME}.ipk', ['debian-binary', 'data.tar.gz', 'control.tar.gz'])
-          "
+          PYEOF
+          python3 /tmp/make_ipk.py
 
       - name: Upload Opkg Artifacts
         if: ${{ matrix.opkg_arch != '' }}
