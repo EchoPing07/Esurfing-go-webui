@@ -18,6 +18,9 @@ go.work.sum
 # Dependency directories
 # vendor/
 
+# go-winres generated icon resources
+rsrc_*.syso
+
 # env file
 .env
 .idea

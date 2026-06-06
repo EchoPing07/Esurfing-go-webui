@@ -70,7 +70,7 @@ func main() {
 
 	fileServer := http.FileServer(http.FS(webSub))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
+		if r.URL.Path != "/" && r.URL.Path != "/favicon.ico" && r.URL.Path != "/icon.svg" {
 			http.NotFound(w, r)
 			return
 		}
