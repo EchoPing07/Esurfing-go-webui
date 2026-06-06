@@ -29,5 +29,6 @@ rsrc_*.syso
 # Project specific
 config.json
 *.json
+!winres/winres.json
 !web/**
 esurfing_data/
