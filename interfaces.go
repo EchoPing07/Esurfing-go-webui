@@ -24,6 +24,9 @@ func ListInterfaces() ([]NetworkInterface, error) {
 
 	var result []NetworkInterface
 	for _, iface := range ifaces {
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
 		ni := NetworkInterface{
 			Name:       iface.Name,
 			IsUp:       iface.Flags&net.FlagUp != 0,

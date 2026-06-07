@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 )
@@ -27,11 +28,20 @@ type ManagedClient struct {
 	NextHeartbeat string `json:"next_heartbeat"`
 	LastLogin     string `json:"last_login"`
 	ErrorCount    int    `json:"error_count"`
+	Order         int    `json:"order"`
 
 	client *Client
 	ctx    context.Context
 	cancel context.CancelFunc
 	mu     sync.RWMutex
+}
+
+// stopClient 安全停止客户端（统一停止路径）
+func (mc *ManagedClient) stopClient() {
+	if mc.client != nil {
+		mc.client.Cancel()
+		mc.client = nil
+	}
 }
 
 // ManagerConfig 持久化配置结构
@@ -45,6 +55,7 @@ type Settings struct {
 	WebPort           int    `json:"web_port"`
 	DefaultMaxRetries int    `json:"default_max_retries"`
 	AccessMode        string `json:"access_mode"`
+	AuthCooldown      int    `json:"auth_cooldown"` // 认证冷却时间（秒），默认5，范围1-600
 }
 
 // Manager 客户端管理器，负责配置持久化和多客户端生命周期管理
@@ -54,16 +65,52 @@ type Manager struct {
 	settings Settings
 	configPath string
 	logHub   *LogHub
+
+	authMu       sync.Mutex   // 全局认证互斥锁
+	lastAuthTime time.Time    // 上次认证完成时间
 }
 
 // NewManager 创建管理器实例
 func NewManager(configPath string, logHub *LogHub) *Manager {
 	return &Manager{
 		clients:    make(map[string]*ManagedClient),
-		settings:   Settings{WebPort: 8080, DefaultMaxRetries: 5},
+		settings:   Settings{WebPort: 8080, DefaultMaxRetries: 5, AuthCooldown: 5},
 		configPath: configPath,
 		logHub:     logHub,
 	}
+}
+
+// getAuthCooldown 获取认证冷却时间（秒），默认5，范围1-600
+func (m *Manager) getAuthCooldown() time.Duration {
+	cd := m.settings.AuthCooldown
+	if cd < 1 {
+		cd = 5
+	}
+	if cd > 600 {
+		cd = 600
+	}
+	return time.Duration(cd) * time.Second
+}
+
+// waitAuthCooldown 等待认证冷却，持锁计算后释放锁再 sleep，避免长阻塞
+func (m *Manager) waitAuthCooldown(name string) {
+	m.authMu.Lock()
+	cd := m.getAuthCooldown()
+	elapsed := time.Since(m.lastAuthTime)
+	if elapsed >= cd {
+		m.lastAuthTime = time.Now()
+		m.authMu.Unlock()
+		return
+	}
+	wait := cd - elapsed
+	m.logHub.Add("info", fmt.Sprintf("[%s] auth cooldown, waiting %v", name, wait.Round(time.Millisecond)))
+	m.authMu.Unlock()
+
+	time.Sleep(wait)
+
+	m.authMu.Lock()
+	m.lastAuthTime = time.Now()
+	m.authMu.Unlock()
 }
 
 // Load 从配置文件加载客户端列表和全局设置
@@ -85,6 +132,9 @@ func (m *Manager) Load() error {
 	if m.settings.WebPort == 0 {
 		m.settings.WebPort = 8080
 	}
+	if m.settings.AuthCooldown == 0 {
+		m.settings.AuthCooldown = 5
+	}
 
 	for i := range mc.Interfaces {
 		iface := &mc.Interfaces[i]
@@ -95,6 +145,9 @@ func (m *Manager) Load() error {
 		iface.ErrorCount = 0
 		if iface.BindInterface == "" {
 			iface.BindInterface = iface.Name
+		}
+		if iface.Order == 0 {
+			iface.Order = i + 1
 		}
 		m.clients[iface.Name] = iface
 	}
@@ -120,6 +173,7 @@ func (m *Manager) Save() error {
 			DnsAddress:    c.DnsAddress,
 			BindInterface: c.BindInterface,
 			MaxRetries:    c.MaxRetries,
+			Order:         c.Order,
 		})
 		c.mu.RUnlock()
 	}
@@ -161,10 +215,14 @@ func (m *Manager) GetAll() []ManagedClient {
 			NextHeartbeat: c.NextHeartbeat,
 			LastLogin:     c.LastLogin,
 			ErrorCount:    c.ErrorCount,
+			Order:         c.Order,
 		}
 		c.mu.RUnlock()
 		result = append(result, mc)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Order < result[j].Order
+	})
 	return result
 }
 
@@ -187,6 +245,13 @@ func (m *Manager) Add(mc *ManagedClient) error {
 	if mc.BindInterface == "" {
 		mc.BindInterface = mc.Name
 	}
+	nextOrder := 1
+	for _, c := range m.clients {
+		if c.Order >= nextOrder {
+			nextOrder = c.Order + 1
+		}
+	}
+	mc.Order = nextOrder
 	m.clients[mc.Name] = mc
 	m.mu.Unlock()
 
@@ -205,8 +270,7 @@ func (m *Manager) Update(name string, mc *ManagedClient) error {
 	existing.mu.Lock()
 	wasRunning := existing.client != nil
 	if wasRunning {
-		existing.cancel()
-		existing.client = nil
+		existing.stopClient()
 	}
 
 	existing.Username = mc.Username
@@ -244,10 +308,7 @@ func (m *Manager) Delete(name string) error {
 	}
 
 	mc.mu.Lock()
-	if mc.client != nil {
-		mc.cancel()
-		mc.client = nil
-	}
+	mc.stopClient()
 	mc.mu.Unlock()
 
 	delete(m.clients, name)
@@ -299,10 +360,7 @@ func (m *Manager) Disable(name string) error {
 	mc.LastHeartbeat = ""
 	mc.NextHeartbeat = ""
 	mc.ErrorCount = 0
-	if mc.client != nil {
-		mc.cancel()
-		mc.client = nil
-	}
+	mc.stopClient()
 	mc.mu.Unlock()
 
 	if err := m.Save(); err != nil {
@@ -342,10 +400,7 @@ func (m *Manager) Logout(name string) error {
 	}
 
 	mc.mu.Lock()
-	if mc.client != nil {
-		mc.cancel()
-		mc.client = nil
-	}
+	mc.stopClient()
 	mc.Status = "offline"
 	mc.UserIP = ""
 	mc.LastHeartbeat = ""
@@ -358,10 +413,7 @@ func (m *Manager) Logout(name string) error {
 // startClient 启动客户端协程，注册状态变更、认证成功、心跳回调
 func (m *Manager) startClient(mc *ManagedClient) error {
 	mc.mu.Lock()
-	if mc.client != nil {
-		mc.cancel()
-		mc.client = nil
-	}
+	mc.stopClient()
 
 	cfg := &Config{
 		Username:      mc.Username,
@@ -372,15 +424,16 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 		DnsAddress:    mc.DnsAddress,
 	}
 
-	client, err := NewClient(cfg)
+	name := mc.Name
+	mc.ctx, mc.cancel = context.WithCancel(context.Background())
+
+	client, err := NewClient(cfg, mc.ctx, mc.cancel)
 	if err != nil {
 		mc.mu.Unlock()
 		return err
 	}
 
-	name := mc.Name
 	mc.client = client
-	mc.ctx, mc.cancel = context.WithCancel(context.Background())
 
 	var lastStatus string
 
@@ -391,6 +444,7 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 			mc.UserIP = ""
 			mc.LastHeartbeat = ""
 		}
+		en := mc.Enabled
 		mr := mc.MaxRetries
 		mc.mu.Unlock()
 
@@ -399,7 +453,7 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 			lastStatus = status
 		}
 
-		if status == "offline" && mc.Enabled {
+		if status == "offline" && en {
 			mc.mu.Lock()
 			mc.ErrorCount++
 			ec := mc.ErrorCount
@@ -436,6 +490,10 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 		mc.mu.Unlock()
 	}
 
+	client.OnBeforeAuth = func() {
+		m.waitAuthCooldown(name)
+	}
+
 	mc.Status = "offline"
 	mc.mu.Unlock()
 
@@ -464,6 +522,12 @@ func (m *Manager) GetSettings() Settings {
 
 // UpdateSettings 更新全局设置
 func (m *Manager) UpdateSettings(s Settings) error {
+	if s.AuthCooldown < 1 {
+		s.AuthCooldown = 1
+	}
+	if s.AuthCooldown > 600 {
+		s.AuthCooldown = 600
+	}
 	m.mu.Lock()
 	m.settings = s
 	m.mu.Unlock()
@@ -502,13 +566,10 @@ func (m *Manager) StopAll() {
 
 	for _, mc := range clients {
 		mc.mu.Lock()
-		if mc.client != nil {
-			mc.client.Cancel()
-			mc.client = nil
-			mc.Status = "offline"
-			mc.UserIP = ""
-			mc.LastHeartbeat = ""
-		}
+		mc.stopClient()
+		mc.Status = "offline"
+		mc.UserIP = ""
+		mc.LastHeartbeat = ""
 		mc.mu.Unlock()
 	}
 

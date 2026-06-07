@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // API Web API 服务，提供接口管理和日志查询
@@ -205,11 +206,17 @@ func (a *API) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	ch := a.logHub.Subscribe()
 	defer a.logHub.Unsubscribe(ch)
 
+	keepalive := time.NewTicker(30 * time.Second)
+	defer keepalive.Stop()
+
 	ctx := r.Context()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-keepalive.C:
+			_, _ = w.Write([]byte(": keepalive\n\n"))
+			flusher.Flush()
 		case entry, ok := <-ch:
 			if !ok {
 				return

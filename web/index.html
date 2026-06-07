@@ -99,7 +99,8 @@ body{font:14px/1.5 -apple-system,sans-serif;background:var(--bg);color:var(--t)}
 <div class="tw" id="tw"></div>
 
 <script>
-var S={t:'list',ifs:[],sysIfs:[],logs:[],set:{web_port:8080,default_max_retries:5},evt:null};
+var S={t:'list',ifs:[],sysIfs:[],logs:[],set:{web_port:8080,default_max_retries:5,auth_cooldown:5},evt:null};
+var _busy={};
 
 function g(u){return fetch(u).then(function(r){if(!r.ok)throw Error(r.status);return r.json()})}
 function p(u,d){return fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:d?JSON.stringify(d):''}).then(function(r){if(!r.ok)throw Error(r.status);return r.json().catch(function(){return{}})})}
@@ -174,6 +175,7 @@ function rSettingsH(){
     +'<form onsubmit="return saveSet(event)">'
     +'<div class="r2"><div class="fg"><label>WEB 端口</label><input name="port" type="number" value="'+S.set.web_port+'" min="1" max="65535"><div class="h">修改后需重启程序生效</div></div>'
     +'<div class="fg"><label>默认最大重试次数</label><input name="mr" type="number" value="'+S.set.default_max_retries+'" min="0"><div class="h">失败次数达到后自动禁用网口，0=不限制</div></div></div>'
+    +'<div class="fg"><label>认证冷却时间（秒）</label><input name="ac" type="number" value="'+(S.set.auth_cooldown||5)+'" min="1" max="600"><div class="h">两次认证操作之间的最小间隔，防止重复认证，默认5秒</div></div>'
     +'<div class="fg"><label>访问限制</label><select name="am">'
     +'<option value="all"'+(am==='all'?' selected':'')+'>无限制</option>'
     +'<option value="lan"'+(am==='lan'?' selected':'')+'>仅内网</option>'
@@ -193,7 +195,7 @@ function rLogsH(){
 
 function saveSet(ev){
   ev.preventDefault();var fd=new FormData(ev.target);
-  S.set.web_port=Number(fd.get('port'))||8080;S.set.default_max_retries=Number(fd.get('mr'))||0;S.set.access_mode=fd.get('am')||'all';
+  S.set.web_port=Number(fd.get('port'))||8080;S.set.default_max_retries=Number(fd.get('mr'))||0;S.set.access_mode=fd.get('am')||'all';S.set.auth_cooldown=Math.max(1,Math.min(600,Number(fd.get('ac'))||5));
   pu('/api/settings',S.set).then(function(){toast('设置已保存')}).catch(function(e){toast('保存失败: '+e.message)});
   return false;
 }
@@ -234,15 +236,17 @@ function tog(name){
 }
 
 function doIn(name){
+  if(_busy[name])return;_busy[name]=true;
   p('/api/interfaces/'+name+'/login').then(function(){
     toast('正在连接...');load().then(rList);
-  }).catch(function(e){toast('连接失败: '+e.message)});
+  }).catch(function(e){toast('连接失败: '+e.message)}).finally(function(){setTimeout(function(){delete _busy[name]},2000)});
 }
 
 function doOut(name){
+  if(_busy[name])return;_busy[name]=true;
   dl('/api/interfaces/'+name+'/logout').then(function(){
     toast('已断开');load().then(rList);
-  }).catch(function(e){toast('断开失败: '+e.message)});
+  }).catch(function(e){toast('断开失败: '+e.message)}).finally(function(){setTimeout(function(){delete _busy[name]},2000)});
 }
 
 function find(name){for(var i=0;i<S.ifs.length;i++)if(S.ifs[i].interface===name)return S.ifs[i];return null}

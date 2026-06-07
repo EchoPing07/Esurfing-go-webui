@@ -48,10 +48,13 @@ type Client struct {
 	OnStatusChange func(status string)
 	OnAuthSuccess  func(userIP string)
 	OnHeartbeat    func(interval int)
+	OnBeforeAuth   func()
+
+	lastAuthFail time.Time
 }
 
-// NewClient 创建认证客户端
-func NewClient(config *Config) (*Client, error) {
+// NewClient 创建认证客户端，使用外部提供的 ctx/cancel
+func NewClient(config *Config, ctx context.Context, cancel context.CancelFunc) (*Client, error) {
 	if config.Username == "" || config.Password == "" {
 		return nil, errors.New("username or password is empty")
 	}
@@ -60,8 +63,6 @@ func NewClient(config *Config) (*Client, error) {
 	if err != nil {
 		return nil, errors.New(fmt.Errorf("failed to create transport: %w", err).Error())
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	rid := GenerateRandomString(5)
 
@@ -119,6 +120,13 @@ func (c *Client) Start() {
 			c.Log.Println("client context cancel")
 			return
 		case <-ticker.C:
+			if !c.lastAuthFail.IsZero() && c.Config.RetryInterval > 0 {
+				remain := time.Duration(c.Config.RetryInterval)*time.Millisecond - time.Since(c.lastAuthFail)
+				if remain > 0 {
+					c.Log.Printf("retry cooldown, waiting %v", remain)
+					continue
+				}
+			}
 			if err := c.CheckNetwork(); err != nil {
 				c.Log.Printf("Network check failed:%v", err)
 			}
@@ -126,6 +134,9 @@ func (c *Client) Start() {
 			err := c.SendHeartbeat()
 			if err != nil {
 				c.Log.Printf("send heartbeat error: %v", err)
+				if err := c.CheckNetwork(); err != nil {
+					c.Log.Printf("network recheck failed: %v", err)
+				}
 			} else {
 				c.Log.Println("send heartbeat")
 				if c.OnStatusChange != nil {
@@ -168,6 +179,10 @@ func (c *Client) SendHeartbeat() error {
 
 // Logout 注销并断开连接
 func (c *Client) Logout() {
+	// 如果是被主动 stop（ctx 已取消），不触发 offline 回调，避免覆盖新 client 状态
+	if c.Ctx.Err() != nil {
+		return
+	}
 	request, err := c.NewGetRequest("http://connect.rom.miui.com/generate_204")
 	if err != nil {
 		if c.OnStatusChange != nil {
@@ -228,14 +243,19 @@ func (c *Client) CheckNetwork() error {
 
 // HandleRedirect 处理 302 重定向，执行认证
 func (c *Client) HandleRedirect(resp *http.Response) error {
+	if c.OnBeforeAuth != nil {
+		c.OnBeforeAuth()
+	}
 	if err := c.Auth(resp.Header.Get("Location")); err != nil {
 		c.Log.Printf("auth failed: %v", err)
+		c.lastAuthFail = time.Now()
 		if c.OnStatusChange != nil {
 			c.OnStatusChange("offline")
 		}
 		return nil
 	}
 
+	c.lastAuthFail = time.Time{}
 	c.Log.Println("auth finished")
 	if c.OnStatusChange != nil {
 		c.OnStatusChange("online")

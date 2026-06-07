@@ -134,26 +134,48 @@ func NewHttpTransport(c *Config) (http.RoundTripper, error) {
 			return nil, errors.New(fmt.Errorf("failed to get interface IP: %w", err).Error())
 		}
 
-		localAddr := &net.TCPAddr{IP: net.ParseIP(ip)}
+		localIP := net.ParseIP(ip)
+		ifName := c.BindInterface
 		return &http.Transport{
-			DialContext: (&net.Dialer{
-				LocalAddr: localAddr,
-				Resolver:  GetResolver(c, localAddr),
-			}).DialContext,
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				curIP := localIP
+				if freshIP, err := GetInterfaceIP(ifName); err == nil {
+					if parsed := net.ParseIP(freshIP); parsed != nil {
+						curIP = parsed
+					}
+				}
+				d := net.Dialer{
+					LocalAddr: &net.TCPAddr{IP: curIP},
+					Timeout:   10 * time.Second,
+				}
+				return d.DialContext(ctx, network, addr)
+			},
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 15 * time.Second,
+			MaxIdleConns:          10,
+			DisableKeepAlives:     false,
 		}, nil
 	} else {
 		return &http.Transport{
-			DialContext: (&net.Dialer{
-				Resolver: GetResolver(c, nil),
-			}).DialContext,
+			DialContext:           (&net.Dialer{Resolver: GetResolver(c, nil), Timeout: 10 * time.Second}).DialContext,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 15 * time.Second,
+			MaxIdleConns:          10,
 		}, nil
 	}
 }
 
 // GetResolver 根据配置返回DNS解析器，支持自定义DNS地址和本地地址绑定
-func GetResolver(c *Config, localAddr net.Addr) *net.Resolver {
+func GetResolver(c *Config, localIP net.IP) *net.Resolver {
 	if c.DnsAddress == "" {
 		return net.DefaultResolver
+	}
+
+	var udpAddr *net.UDPAddr
+	if localIP != nil {
+		udpAddr = &net.UDPAddr{IP: localIP}
 	}
 
 	return &net.Resolver{
@@ -161,7 +183,7 @@ func GetResolver(c *Config, localAddr net.Addr) *net.Resolver {
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			d := net.Dialer{
 				Timeout:   5 * time.Second,
-				LocalAddr: localAddr,
+				LocalAddr: udpAddr,
 			}
 			return d.DialContext(ctx, "udp", c.DnsAddress)
 		},
