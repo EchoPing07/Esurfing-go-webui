@@ -153,6 +153,17 @@ func (a *API) handleInterfaceAction(w http.ResponseWriter, r *http.Request) {
 		}
 		a.writeJSON(w, http.StatusOK, map[string]string{"status": "logged out"})
 
+	case "force-logout":
+		if r.Method != http.MethodDelete {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if err := a.manager.ForceLogout(name); err != nil {
+			a.writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		a.writeJSON(w, http.StatusOK, map[string]string{"status": "force logged out"})
+
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}

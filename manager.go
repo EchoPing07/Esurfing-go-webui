@@ -4,11 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // ManagedClient 受管理的客户端实例，包含配置和运行状态
@@ -60,11 +64,12 @@ type Settings struct {
 
 // Manager 客户端管理器，负责配置持久化和多客户端生命周期管理
 type Manager struct {
-	mu       sync.RWMutex
-	clients  map[string]*ManagedClient
-	settings Settings
+	mu         sync.RWMutex
+	clients    map[string]*ManagedClient
+	settings   Settings
 	configPath string
-	logHub   *LogHub
+	sessionsDir string
+	logHub     *LogHub
 
 	authMu       sync.Mutex   // 全局认证互斥锁
 	lastAuthTime time.Time    // 上次认证完成时间
@@ -72,11 +77,13 @@ type Manager struct {
 
 // NewManager 创建管理器实例
 func NewManager(configPath string, logHub *LogHub) *Manager {
+	dir := filepath.Dir(configPath)
 	return &Manager{
-		clients:    make(map[string]*ManagedClient),
-		settings:   Settings{WebPort: 8080, DefaultMaxRetries: 5, AuthCooldown: 5},
-		configPath: configPath,
-		logHub:     logHub,
+		clients:     make(map[string]*ManagedClient),
+		settings:    Settings{WebPort: 8080, DefaultMaxRetries: 5, AuthCooldown: 5},
+		configPath:  configPath,
+		sessionsDir: filepath.Join(dir, "sessions"),
+		logHub:      logHub,
 	}
 }
 
@@ -477,6 +484,20 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 		mc.NextHeartbeat = ""
 		mc.mu.Unlock()
 
+		// 保存会话信息，用于意外退出后恢复
+		SaveSession(m.sessionsDir, name, &SessionData{
+			ClientID: client.ClientID.String(),
+			Hostname: client.Hostname,
+			Mac:      client.MacAddress,
+			UserIP:   client.UserIP,
+			AcIP:     client.AcIP,
+			AlgoID:   client.AlgoID,
+			Ticket:   client.Ticket,
+			KeepUrl:  client.KeepUrl,
+			TermUrl:  client.TermUrl,
+			IndexUrl: client.IndexUrl,
+		})
+
 		m.logHub.Add("ok", fmt.Sprintf("[%s] auth finished, ip: %s", name, userIP))
 	}
 
@@ -507,6 +528,17 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 				mc.mu.Unlock()
 			}
 		}()
+
+		// 尝试会话恢复：如果存在保存的会话且心跳成功，跳过认证
+		if sd, err := LoadSession(m.sessionsDir, name); err == nil {
+			if client.TryResume(sd) {
+				m.logHub.Add("ok", fmt.Sprintf("[%s] session resumed, ip: %s", name, sd.UserIP))
+			} else {
+				DeleteSession(m.sessionsDir, name)
+				m.logHub.Add("info", fmt.Sprintf("[%s] session expired, re-auth required", name))
+			}
+		}
+
 		client.Start()
 	}()
 
@@ -574,4 +606,98 @@ func (m *Manager) StopAll() {
 	}
 
 	time.Sleep(200 * time.Millisecond)
+}
+
+// ForceLogout 强制断开指定客户端：向服务器发送 term 请求后清除状态
+func (m *Manager) ForceLogout(name string) error {
+	m.mu.RLock()
+	mc, exists := m.clients[name]
+	m.mu.RUnlock()
+	if !exists {
+		return fmt.Errorf("interface %s not found", name)
+	}
+
+	// 优先从运行中的 client 取会话信息发送 term
+	mc.mu.RLock()
+	c := mc.client
+	mc.mu.RUnlock()
+
+	if c != nil {
+		// 用运行中的 client 直接发 term
+		if c.cipher != nil && c.TermUrl != "" {
+			stateXML, _ := c.GenerateStateXML()
+			if _, err := c.PostXMLWithTimeout(c.TermUrl, stateXML); err != nil {
+				m.logHub.Add("info", fmt.Sprintf("[%s] force logout term send failed: %v", name, err))
+			} else {
+				m.logHub.Add("info", fmt.Sprintf("[%s] force logout term sent", name))
+			}
+		}
+	} else {
+		// client 已停止，用保存的会话临时构造一个 client 来发 term
+		if sd, err := LoadSession(m.sessionsDir, name); err == nil {
+			if m.sendTermFromSession(sd, name) {
+				m.logHub.Add("info", fmt.Sprintf("[%s] force logout term sent (from session)", name))
+			}
+		}
+	}
+
+	DeleteSession(m.sessionsDir, name)
+
+	mc.mu.Lock()
+	mc.stopClient()
+	mc.Status = "offline"
+	mc.UserIP = ""
+	mc.LastHeartbeat = ""
+	mc.ErrorCount = 0
+	mc.mu.Unlock()
+
+	mc.mu.RLock()
+	en := mc.Enabled
+	mc.mu.RUnlock()
+	if en {
+		if err := m.Save(); err != nil {
+			return err
+		}
+	}
+
+	m.logHub.Add("info", fmt.Sprintf("[%s] force logout", name))
+	return nil
+}
+
+// sendTermFromSession 用保存的会话构造临时 client 发送 term 请求
+func (m *Manager) sendTermFromSession(sd *SessionData, name string) bool {
+	clientID, err := uuid.Parse(sd.ClientID)
+	if err != nil {
+		return false
+	}
+	cipher := NewCipher(sd.AlgoID)
+	if cipher == nil {
+		return false
+	}
+	tmpClient := &Client{
+		Config: &Config{BindInterface: sd.Mac},
+		HttpClient: &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
+		ClientID:   clientID,
+		Hostname:   sd.Hostname,
+		MacAddress: sd.Mac,
+		UserIP:     sd.UserIP,
+		AcIP:       sd.AcIP,
+		AlgoID:     sd.AlgoID,
+		Ticket:     sd.Ticket,
+		TermUrl:    sd.TermUrl,
+		cipher:     cipher,
+		Log:        log.New(os.Stdout, "[force-logout:"+name+"] ", log.LstdFlags|log.Lmsgprefix),
+	}
+	stateXML, _ := tmpClient.GenerateStateXML()
+	_, err = tmpClient.PostXMLWithTimeout(sd.TermUrl, stateXML)
+	return err == nil
+}
+
+// ClearSession 清除指定客户端的保存会话
+func (m *Manager) ClearSession(name string) {
+	DeleteSession(m.sessionsDir, name)
 }

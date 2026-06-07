@@ -244,7 +244,7 @@ function doIn(name){
 
 function doOut(name){
   if(_busy[name])return;_busy[name]=true;
-  dl('/api/interfaces/'+name+'/logout').then(function(){
+  dl('/api/interfaces/'+name+'/force-logout').then(function(){
     toast('已断开');load().then(rList);
   }).catch(function(e){toast('断开失败: '+e.message)}).finally(function(){setTimeout(function(){delete _busy[name]},2000)});
 }

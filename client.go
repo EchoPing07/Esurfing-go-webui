@@ -265,3 +265,48 @@ func (c *Client) HandleRedirect(resp *http.Response) error {
 	}
 	return nil
 }
+
+// TryResume 尝试用保存的会话恢复心跳连接，成功返回 true
+func (c *Client) TryResume(sd *SessionData) bool {
+	// 恢复会话字段
+	clientID, err := uuid.Parse(sd.ClientID)
+	if err != nil {
+		c.Log.Printf("resume: invalid client id: %v", err)
+		return false
+	}
+	c.ClientID = clientID
+	c.Hostname = sd.Hostname
+	c.MacAddress = sd.Mac
+	c.UserIP = sd.UserIP
+	c.AcIP = sd.AcIP
+	c.AlgoID = sd.AlgoID
+	c.Ticket = sd.Ticket
+	c.KeepUrl = sd.KeepUrl
+	c.TermUrl = sd.TermUrl
+	c.IndexUrl = sd.IndexUrl
+
+	// 重建加密器
+	c.cipher = NewCipher(c.AlgoID)
+	if c.cipher == nil {
+		c.Log.Printf("resume: unknown algo id: %s", c.AlgoID)
+		return false
+	}
+
+	// 尝试发送心跳
+	if err := c.SendHeartbeat(); err != nil {
+		c.Log.Printf("resume: heartbeat failed: %v", err)
+		return false
+	}
+
+	c.Log.Println("session resumed successfully")
+	if c.OnStatusChange != nil {
+		c.OnStatusChange("online")
+	}
+	if c.OnAuthSuccess != nil {
+		c.OnAuthSuccess(c.UserIP)
+	}
+	if c.OnHeartbeat != nil {
+		c.OnHeartbeat(c.lastHeartbeatInterval)
+	}
+	return true
+}
