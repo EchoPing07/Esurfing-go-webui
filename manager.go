@@ -566,7 +566,7 @@ func (m *Manager) UpdateSettings(s Settings) error {
 	return m.Save()
 }
 
-// StartEnabled 启动所有已启用的客户端
+// StartEnabled 启动所有已启用的客户端，启动失败时自动重试等待接口就绪
 func (m *Manager) StartEnabled() {
 	m.mu.RLock()
 	clients := make([]*ManagedClient, 0)
@@ -578,12 +578,30 @@ func (m *Manager) StartEnabled() {
 	m.mu.RUnlock()
 
 	for _, mc := range clients {
-		if err := m.startClient(mc); err != nil {
-			m.logHub.Add("er", fmt.Sprintf("[%s] auto-start failed: %v", mc.Name, err))
-		} else {
-			m.logHub.Add("info", fmt.Sprintf("[%s] auto-started", mc.Name))
+		m.startClientWithRetry(mc)
+	}
+}
+
+// startClientWithRetry 启动客户端并在失败时自动重试，最多等待 60 秒
+func (m *Manager) startClientWithRetry(mc *ManagedClient) {
+	name := mc.Name
+	maxRetries := 6
+	interval := 10 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		err := m.startClient(mc)
+		if err == nil {
+			m.logHub.Add("info", fmt.Sprintf("[%s] auto-started", name))
+			return
 		}
-		time.Sleep(100 * time.Millisecond)
+
+		if i == maxRetries-1 {
+			m.logHub.Add("er", fmt.Sprintf("[%s] auto-start failed after %d attempts: %v", name, maxRetries, err))
+			return
+		}
+
+		m.logHub.Add("info", fmt.Sprintf("[%s] auto-start failed (attempt %d/%d): %v", name, i+1, maxRetries, err))
+		time.Sleep(interval)
 	}
 }
 
