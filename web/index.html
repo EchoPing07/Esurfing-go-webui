@@ -22,12 +22,12 @@ body{font:14px/1.5 -apple-system,sans-serif;background:var(--bg);color:var(--t)}
 .sum b{color:var(--t)}
 .grid{display:grid;gap:12px;margin-top:12px}
 @media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
-.card{border:1px solid var(--b);background:var(--s)}
+.card{border:1px solid var(--b);background:var(--s);min-height:120px}
 .ch{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--b)}
 .cn{font:600 14px/1 var(--fm)}
-.cs{display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:13px}
+.cs{display:flex;align-items:center;gap:10px;padding:10px 12px;font-size:13px;min-height:36px}
 .cs .ip{font-family:var(--fm);color:var(--t2)}
-.cm{display:flex;gap:20px;padding:0 12px 8px;font-size:12px;color:var(--t2);flex-wrap:wrap}
+.cm{display:flex;gap:20px;padding:4px 12px 12px;font-size:12px;color:var(--t2);flex-wrap:wrap;min-height:28px}
 .cm b{color:var(--t);font-weight:600}
 .cf{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--b);background:#f0f0f0}
 .cf .sp{flex:1}
@@ -134,7 +134,8 @@ function rList(){
 }
 
 function rCard(f){
-  var st=f.enabled?(f.status||'offline'):'disabled';
+  var actualSt=f.status||'offline';
+  var st=f.enabled?actualSt:'disabled';
   var label={online:'● 在线',offline:'○ 离线',auth:'◎ 认证中',disabled:'○ 已禁用'}[st]||'○ '+st;
   if(f.enabled&&!f.username)label='○ 未配置';
   var hb=f.last_heartbeat?ago(f.last_heartbeat):'—';
@@ -149,13 +150,14 @@ function rCard(f){
   if(f.username)h+='<span>账号 <b>'+e(f.username)+'</b></span>';
   h+='<span>认证 <b>'+lg+'</b></span>';
   h+='<span>心跳 <b>'+hb+'</b></span>';
-  if(f.status==='online'&&f.next_heartbeat)h+='<span>下次 <b>'+nhb+'</b></span>';
+  if(actualSt==='online'&&f.next_heartbeat)h+='<span>下次 <b>'+nhb+'</b></span>';
   h+='<span>错误 <b'+errSt+'>'+errTxt+'</b></span>';
   if(mr>0)h+='<span>上限 <b>'+mr+'</b></span>';
   h+='</div><div class="cf"><button class="btn" onclick="openEdit(\''+e(f.interface)+'\')">编辑</button><span class="sp"></span>';
-  if(st==='online')h+='<button class="btn btn-d" onclick="doOut(\''+e(f.interface)+'\')">断开</button>';
-  else if(f.enabled&&st!=='auth')h+='<button class="btn btn-p" onclick="doIn(\''+e(f.interface)+'\')">连接</button>';
-  else if(st==='auth')h+='<button class="btn" disabled>连接中...</button>';
+  if(!f.enabled){h+='<button class="btn btn-d" onclick="doOut(\''+e(f.interface)+'\')">断开</button>'}
+  else if(actualSt==='online')h+='<button class="btn btn-d" onclick="doOut(\''+e(f.interface)+'\')">断开</button>';
+  else if(actualSt==='auth')h+='<button class="btn" disabled>连接中...</button>';
+  else if(f.username)h+='<button class="btn btn-p" onclick="doIn(\''+e(f.interface)+'\')">连接</button>';
   h+='<button class="btn btn-d" onclick="delIf(\''+e(f.interface)+'\')">删除</button></div></div>';
   return h;
 }

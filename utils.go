@@ -136,6 +136,7 @@ func NewHttpTransport(c *Config) (http.RoundTripper, error) {
 
 		localIP := net.ParseIP(ip)
 		ifName := c.BindInterface
+		resolver := GetResolver(c, localIP)
 		return &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				curIP := localIP
@@ -147,6 +148,7 @@ func NewHttpTransport(c *Config) (http.RoundTripper, error) {
 				d := net.Dialer{
 					LocalAddr: &net.TCPAddr{IP: curIP},
 					Timeout:   10 * time.Second,
+					Resolver:  resolver,
 				}
 				return d.DialContext(ctx, network, addr)
 			},
