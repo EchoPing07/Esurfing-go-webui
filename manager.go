@@ -60,6 +60,7 @@ type Settings struct {
 	DefaultMaxRetries int    `json:"default_max_retries"`
 	AccessMode        string `json:"access_mode"`
 	AuthCooldown      int    `json:"auth_cooldown"` // 认证冷却时间（秒），默认5，范围1-600
+	LogLevel          string `json:"log_level"`    // 日志最低等级: debug, info, warn, error
 }
 
 // Manager 客户端管理器，负责配置持久化和多客户端生命周期管理
@@ -142,6 +143,10 @@ func (m *Manager) Load() error {
 	if m.settings.AuthCooldown == 0 {
 		m.settings.AuthCooldown = 5
 	}
+	if m.settings.LogLevel == "" {
+		m.settings.LogLevel = LevelInfo
+	}
+	m.logHub.SetLevel(m.settings.LogLevel)
 
 	for i := range mc.Interfaces {
 		iface := &mc.Interfaces[i]
@@ -184,6 +189,9 @@ func (m *Manager) Save() error {
 		})
 		c.mu.RUnlock()
 	}
+	sort.Slice(mc.Interfaces, func(i, j int) bool {
+		return mc.Interfaces[i].Order < mc.Interfaces[j].Order
+	})
 	m.mu.RUnlock()
 
 	data, err := json.MarshalIndent(mc, "", "  ")
@@ -442,7 +450,11 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 
 	mc.client = client
 
-	var lastStatus string
+	client.OnLog = func(level, msg string) {
+		m.logHub.Add(level, fmt.Sprintf("[%s] %s", name, msg))
+	}
+
+	var lastStatus string = "offline"
 
 	client.OnStatusChange = func(status string) {
 		mc.mu.Lock()
@@ -471,7 +483,7 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 				mc.Enabled = false
 				mc.Status = "disabled"
 				mc.mu.Unlock()
-				m.logHub.Add("er", fmt.Sprintf("[%s] max retries %d reached, auto disabled", name, mr))
+				m.logHub.Add(LevelError, fmt.Sprintf("[%s] max retries %d reached, auto disabled", name, mr))
 			}
 		}
 	}
@@ -498,7 +510,7 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 			IndexUrl: client.IndexUrl,
 		})
 
-		m.logHub.Add("ok", fmt.Sprintf("[%s] auth finished, ip: %s", name, userIP))
+		m.logHub.Add(LevelOK, fmt.Sprintf("[%s] auth finished, ip: %s", name, userIP))
 	}
 
 	client.OnHeartbeat = func(interval int) {
@@ -521,7 +533,7 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				m.logHub.Add("er", fmt.Sprintf("[%s] panic: %v", name, r))
+				m.logHub.Add(LevelError, fmt.Sprintf("[%s] panic: %v", name, r))
 				mc.mu.Lock()
 				mc.Status = "offline"
 				mc.client = nil
@@ -532,7 +544,7 @@ func (m *Manager) startClient(mc *ManagedClient) error {
 		// 尝试会话恢复：如果存在保存的会话且心跳成功，跳过认证
 		if sd, err := LoadSession(m.sessionsDir, name); err == nil {
 			if client.TryResume(sd) {
-				m.logHub.Add("ok", fmt.Sprintf("[%s] session resumed, ip: %s", name, sd.UserIP))
+				m.logHub.Add(LevelOK, fmt.Sprintf("[%s] session resumed, ip: %s", name, sd.UserIP))
 			} else {
 				DeleteSession(m.sessionsDir, name)
 				m.logHub.Add("info", fmt.Sprintf("[%s] session expired, re-auth required", name))
@@ -560,9 +572,13 @@ func (m *Manager) UpdateSettings(s Settings) error {
 	if s.AuthCooldown > 600 {
 		s.AuthCooldown = 600
 	}
+	if s.LogLevel == "" {
+		s.LogLevel = LevelInfo
+	}
 	m.mu.Lock()
 	m.settings = s
 	m.mu.Unlock()
+	m.logHub.SetLevel(s.LogLevel)
 	return m.Save()
 }
 
@@ -596,7 +612,7 @@ func (m *Manager) startClientWithRetry(mc *ManagedClient) {
 		}
 
 		if i == maxRetries-1 {
-			m.logHub.Add("er", fmt.Sprintf("[%s] auto-start failed after %d attempts: %v", name, maxRetries, err))
+			m.logHub.Add(LevelError, fmt.Sprintf("[%s] auto-start failed after %d attempts: %v", name, maxRetries, err))
 			return
 		}
 
@@ -692,13 +708,17 @@ func (m *Manager) sendTermFromSession(sd *SessionData, name string) bool {
 	if cipher == nil {
 		return false
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	tmpClient := &Client{
-		Config: &Config{BindInterface: sd.Mac},
+		Config: &Config{},
 		HttpClient: &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
 		},
+		Ctx:        ctx,
+		Cancel:     cancel,
 		ClientID:   clientID,
 		Hostname:   sd.Hostname,
 		MacAddress: sd.Mac,

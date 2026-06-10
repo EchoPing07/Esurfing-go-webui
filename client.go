@@ -49,8 +49,23 @@ type Client struct {
 	OnAuthSuccess  func(userIP string)
 	OnHeartbeat    func(interval int)
 	OnBeforeAuth   func()
+	OnLog          func(level, msg string)
 
 	lastAuthFail time.Time
+}
+
+func (c *Client) logf(level, format string, v ...interface{}) {
+	c.Log.Printf("["+level+"] "+format, v...)
+	if c.OnLog != nil {
+		c.OnLog(level, fmt.Sprintf(format, v...))
+	}
+}
+
+func (c *Client) logln(level, msg string) {
+	c.Log.Println("[" + level + "] " + msg)
+	if c.OnLog != nil {
+		c.OnLog(level, msg)
+	}
 }
 
 // NewClient 创建认证客户端，使用外部提供的 ctx/cancel
@@ -61,7 +76,7 @@ func NewClient(config *Config, ctx context.Context, cancel context.CancelFunc) (
 
 	transport, err := NewHttpTransport(config)
 	if err != nil {
-		return nil, errors.New(fmt.Errorf("failed to create transport: %w", err).Error())
+		return nil, fmt.Errorf("failed to create transport: %w", err)
 	}
 
 	rid := GenerateRandomString(5)
@@ -72,11 +87,11 @@ func NewClient(config *Config, ctx context.Context, cancel context.CancelFunc) (
 	if config.CheckInterval <= 0 {
 		config.CheckInterval = 10000
 	}
-	if config.RetryInterval == 0 {
-		config.RetryInterval = 10000
-	}
 	if config.RetryInterval < 0 {
 		config.RetryInterval = math.MaxInt32
+	}
+	if config.RetryInterval == 0 {
+		config.RetryInterval = 10000
 	}
 
 	cl := &Client{
@@ -95,7 +110,7 @@ func NewClient(config *Config, ctx context.Context, cancel context.CancelFunc) (
 			"["+rid+"][user:"+config.Username+" bind_device:"+config.BindInterface+"] ",
 			log.LstdFlags|log.Lmsgprefix,
 		),
-		heartBeatTicker: time.NewTicker(time.Duration(math.MaxInt32)),
+		heartBeatTicker: time.NewTicker(time.Duration(math.MaxInt64)),
 	}
 
 	return cl, nil
@@ -103,12 +118,12 @@ func NewClient(config *Config, ctx context.Context, cancel context.CancelFunc) (
 
 // Start 启动客户端主循环，定期检测网络状态并发送心跳
 func (c *Client) Start() {
-	c.Log.Println("client start")
+	c.logln("info", "client start")
 	defer c.heartBeatTicker.Stop()
 	defer c.Logout()
 
 	if err := c.CheckNetwork(); err != nil {
-		c.Log.Printf("Network check failed:%v", err)
+		c.logf("warn", "network check failed: %v", err)
 	}
 
 	ticker := time.NewTicker(time.Millisecond * time.Duration(c.Config.CheckInterval))
@@ -117,28 +132,28 @@ func (c *Client) Start() {
 	for {
 		select {
 		case <-c.Ctx.Done():
-			c.Log.Println("client context cancel")
+			c.logln("info", "client context cancel")
 			return
 		case <-ticker.C:
 			if !c.lastAuthFail.IsZero() && c.Config.RetryInterval > 0 {
 				remain := time.Duration(c.Config.RetryInterval)*time.Millisecond - time.Since(c.lastAuthFail)
 				if remain > 0 {
-					c.Log.Printf("retry cooldown, waiting %v", remain)
+					c.logf("debug", "retry cooldown, waiting %v", remain)
 					continue
 				}
 			}
 			if err := c.CheckNetwork(); err != nil {
-				c.Log.Printf("Network check failed:%v", err)
+				c.logf("warn", "network check failed: %v", err)
 			}
 		case <-c.heartBeatTicker.C:
 			err := c.SendHeartbeat()
 			if err != nil {
-				c.Log.Printf("send heartbeat error: %v", err)
+				c.logf("warn", "send heartbeat error: %v", err)
 				if err := c.CheckNetwork(); err != nil {
-					c.Log.Printf("network recheck failed: %v", err)
+					c.logf("warn", "network recheck failed: %v", err)
 				}
 			} else {
-				c.Log.Println("send heartbeat")
+				c.logln("debug", "send heartbeat")
 				if c.OnStatusChange != nil {
 					c.OnStatusChange("online")
 				}
@@ -154,22 +169,22 @@ func (c *Client) Start() {
 func (c *Client) SendHeartbeat() error {
 	stateXML, err := c.GenerateStateXML()
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	decrypted, err := c.PostXML(c.KeepUrl, stateXML)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	var stateResp StateResponse
-	if err := xml.Unmarshal(decrypted, &stateResp); err != nil {
-		return errors.New(err.Error())
+	if err = xml.Unmarshal(decrypted, &stateResp); err != nil {
+		return err
 	}
 
 	interval, err := strconv.Atoi(stateResp.Interval)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	c.heartBeatTicker.Reset(time.Duration(interval) * time.Second)
@@ -191,10 +206,13 @@ func (c *Client) Logout() {
 		return
 	}
 	resp, err := c.HttpClient.Do(request)
-	if err == nil && resp != nil && resp.StatusCode == http.StatusNoContent && c.cipher != nil {
-		stateXML, _ := c.GenerateStateXML()
-		_, _ = c.PostXMLWithTimeout(c.TermUrl, stateXML)
-		c.Log.Println("log out request sent")
+	if err == nil && resp != nil {
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusNoContent && c.cipher != nil {
+			stateXML, _ := c.GenerateStateXML()
+			_, _ = c.PostXMLWithTimeout(c.TermUrl, stateXML)
+			c.logln("info", "log out request sent")
+		}
 	}
 	if c.OnStatusChange != nil {
 		c.OnStatusChange("offline")
@@ -205,12 +223,12 @@ func (c *Client) Logout() {
 func (c *Client) CheckNetwork() error {
 	request, err := c.NewGetRequest("http://connect.rom.miui.com/generate_204")
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	resp, err := c.HttpClient.Do(request)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 	if resp == nil {
 		return errors.New("nil response")
@@ -229,8 +247,8 @@ func (c *Client) CheckNetwork() error {
 		return nil
 
 	case http.StatusFound:
-		c.heartBeatTicker.Reset(time.Duration(math.MaxInt32))
-		c.Log.Println("auth required")
+		c.heartBeatTicker.Reset(time.Duration(math.MaxInt64))
+		c.logln("info", "auth required")
 		if c.OnStatusChange != nil {
 			c.OnStatusChange("auth")
 		}
@@ -247,7 +265,7 @@ func (c *Client) HandleRedirect(resp *http.Response) error {
 		c.OnBeforeAuth()
 	}
 	if err := c.Auth(resp.Header.Get("Location")); err != nil {
-		c.Log.Printf("auth failed: %v", err)
+		c.logf("warn", "auth failed: %v", err)
 		c.lastAuthFail = time.Now()
 		if c.OnStatusChange != nil {
 			c.OnStatusChange("offline")
@@ -256,7 +274,7 @@ func (c *Client) HandleRedirect(resp *http.Response) error {
 	}
 
 	c.lastAuthFail = time.Time{}
-	c.Log.Println("auth finished")
+	c.logln("ok", "auth finished")
 	if c.OnStatusChange != nil {
 		c.OnStatusChange("online")
 	}
@@ -271,7 +289,7 @@ func (c *Client) TryResume(sd *SessionData) bool {
 	// 恢复会话字段
 	clientID, err := uuid.Parse(sd.ClientID)
 	if err != nil {
-		c.Log.Printf("resume: invalid client id: %v", err)
+		c.logf("warn", "resume: invalid client id: %v", err)
 		return false
 	}
 	c.ClientID = clientID
@@ -288,17 +306,17 @@ func (c *Client) TryResume(sd *SessionData) bool {
 	// 重建加密器
 	c.cipher = NewCipher(c.AlgoID)
 	if c.cipher == nil {
-		c.Log.Printf("resume: unknown algo id: %s", c.AlgoID)
+		c.logf("warn", "resume: unknown algo id: %s", c.AlgoID)
 		return false
 	}
 
 	// 尝试发送心跳
 	if err := c.SendHeartbeat(); err != nil {
-		c.Log.Printf("resume: heartbeat failed: %v", err)
+		c.logf("warn", "resume: heartbeat failed: %v", err)
 		return false
 	}
 
-	c.Log.Println("session resumed successfully")
+	c.logln("ok", "session resumed successfully")
 	if c.OnStatusChange != nil {
 		c.OnStatusChange("online")
 	}

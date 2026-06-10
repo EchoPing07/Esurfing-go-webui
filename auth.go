@@ -68,7 +68,7 @@ func (c *Client) Auth(URL string) error {
 func (c *Client) GetUserAndAcIP() error {
 	URLParsed, err := url.Parse(c.TicketUrl)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	c.UserIP = URLParsed.Query().Get("wlanuserip")
@@ -89,12 +89,12 @@ func (c *Client) GetEConfig() error {
 
 	request, err := c.NewGetRequest(c.IndexUrl)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	response, err := c.HttpClient.Do(request)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 	if response == nil {
 		return errors.New("nil response from GetEConfig request")
@@ -106,19 +106,19 @@ func (c *Client) GetEConfig() error {
 
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	eConfigData, err := FormatEConfig(data)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	eConfig := &EConfig{}
 
 	err = xml.Unmarshal(eConfigData, eConfig)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	c.TicketUrl = eConfig.TicketURL
@@ -135,12 +135,12 @@ func (c *Client) GetSchoolInfo() error {
 
 	request, err := c.NewGetRequest(c.RedirectUrl)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	response, err := c.HttpClient.Do(request)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 	if response == nil {
 		return errors.New("nil response from GetSchoolInfo request")
@@ -172,12 +172,12 @@ func (c *Client) GetSchoolInfo() error {
 func (c *Client) GetAlgoId() error {
 	request, err := c.NewPostRequest(c.TicketUrl, []byte(c.AlgoID))
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	response, err := c.HttpClient.Do(request)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 	if response == nil {
 		return errors.New("nil response from GetAlgoId request")
@@ -189,12 +189,12 @@ func (c *Client) GetAlgoId() error {
 
 	algoIdData, err := io.ReadAll(response.Body)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	c.AlgoID, _, err = DecodeAlgoID(algoIdData)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	return nil
@@ -204,19 +204,19 @@ func (c *Client) GetAlgoId() error {
 func (c *Client) GetTicket() error {
 	getTicketXML, err := c.GenerateGetTicketXML()
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	ticketData, err := c.PostXML(c.TicketUrl, getTicketXML)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	ticketXML := &TicketResponse{}
 
 	err = xml.Unmarshal(ticketData, ticketXML)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	c.Ticket = ticketXML.Ticket
@@ -227,18 +227,18 @@ func (c *Client) GetTicket() error {
 func (c *Client) Login() error {
 	loginXML, err := c.GenerateLoginXML()
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	responseData, err := c.PostXML(c.AuthUrl, loginXML)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	loginResponseXML := &LoginResponse{}
 	err = xml.Unmarshal(responseData, loginResponseXML)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	c.KeepUrl = loginResponseXML.KeepURL
@@ -246,7 +246,7 @@ func (c *Client) Login() error {
 
 	keepRetrySec, err := strconv.Atoi(loginResponseXML.KeepRetry)
 	if err != nil {
-		return errors.New(err.Error())
+		return err
 	}
 
 	c.heartBeatTicker.Reset(time.Second * time.Duration(keepRetrySec))

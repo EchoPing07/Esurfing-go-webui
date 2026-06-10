@@ -72,7 +72,7 @@ body{font:14px/1.5 -apple-system,sans-serif;background:var(--bg);color:var(--t)}
 .log-bar button{background:none;border:none;color:var(--t3);cursor:pointer;font:inherit;padding:2px 6px}
 .log-bar button:hover{color:var(--t)}
 .log{font:12px/1.8 var(--fm);color:var(--t2);height:420px;overflow:auto;padding:6px 12px}
-.log .ts{color:var(--t3)}.log .er{color:var(--t);font-weight:600}.log .ok{color:var(--t2)}.log .wn{color:var(--t2);font-weight:500}
+.log .ts{color:var(--t3)}.log .er{color:var(--t);font-weight:600}.log .ok{color:var(--t2)}.log .wn{color:var(--t2);font-weight:500}.log .debug{color:var(--t3)}.log .warn{color:var(--t2);font-weight:500}.log .error{color:var(--t);font-weight:600}
 .tw{position:fixed;top:8px;right:8px;z-index:200;display:flex;flex-direction:column;gap:4px}
 .toast{background:var(--s);border:1px solid var(--b);padding:6px 12px;font-size:13px}
 .empty{text-align:center;padding:48px 16px;color:var(--t3);font-size:13px}
@@ -99,7 +99,7 @@ body{font:14px/1.5 -apple-system,sans-serif;background:var(--bg);color:var(--t)}
 <div class="tw" id="tw"></div>
 
 <script>
-var S={t:'list',ifs:[],sysIfs:[],logs:[],set:{web_port:8080,default_max_retries:5,auth_cooldown:5},evt:null};
+var S={t:'list',ifs:[],sysIfs:[],logs:[],set:{web_port:8080,default_max_retries:5,auth_cooldown:5,log_level:'info'},evt:null};
 var _busy={};
 
 function g(u){return fetch(u).then(function(r){if(!r.ok)throw Error(r.status);return r.json()})}
@@ -173,11 +173,18 @@ function rMore(){
 
 function rSettingsH(){
   var am=S.set.access_mode||'all';
+  var ll=S.set.log_level||'info';
   return '<div class="card"><div class="ch"><span style="font-weight:600">全局设置</span></div><div class="mb">'
     +'<form onsubmit="return saveSet(event)">'
     +'<div class="r2"><div class="fg"><label>WEB 端口</label><input name="port" type="number" value="'+S.set.web_port+'" min="1" max="65535"><div class="h">修改后需重启程序生效</div></div>'
     +'<div class="fg"><label>默认最大重试次数</label><input name="mr" type="number" value="'+S.set.default_max_retries+'" min="0"><div class="h">失败次数达到后自动禁用网口，0=不限制</div></div></div>'
     +'<div class="fg"><label>认证冷却时间（秒）</label><input name="ac" type="number" value="'+(S.set.auth_cooldown||5)+'" min="1" max="600"><div class="h">两次认证操作之间的最小间隔，防止重复认证，默认5秒</div></div>'
+    +'<div class="fg"><label>日志等级</label><select name="ll">'
+    +'<option value="debug"'+(ll==='debug'?' selected':'')+'>Debug</option>'
+    +'<option value="info"'+(ll==='info'?' selected':'')+'>Info</option>'
+    +'<option value="warn"'+(ll==='warn'?' selected':'')+'>Warn</option>'
+    +'<option value="error"'+(ll==='error'?' selected':'')+'>Error</option>'
+    +'</select><div class="h">仅显示该等级及以上的日志，默认 Info</div></div>'
     +'<div class="fg"><label>访问限制</label><select name="am">'
     +'<option value="all"'+(am==='all'?' selected':'')+'>无限制</option>'
     +'<option value="lan"'+(am==='lan'?' selected':'')+'>仅内网</option>'
@@ -188,7 +195,7 @@ function rSettingsH(){
 }
 
 function rLogsH(){
-  var h='<div class="log-card"><div class="log-bar"><span>'+S.logs.length+' 条</span><span><button onclick="S.logs=[];rMore()">清空</button> <button onclick="sBot()">↓</button></span></div>';
+  var h='<div class="log-card"><div class="log-bar"><span>'+S.logs.length+' 条</span><span><button onclick="sBot()">↓</button></span></div>';
   h+='<div class="log" id="log">';
   for(var i=0;i<S.logs.length;i++)h+=fLog(S.logs[i]);
   h+='</div></div>';
@@ -197,7 +204,7 @@ function rLogsH(){
 
 function saveSet(ev){
   ev.preventDefault();var fd=new FormData(ev.target);
-  S.set.web_port=Number(fd.get('port'))||8080;S.set.default_max_retries=Number(fd.get('mr'))||0;S.set.access_mode=fd.get('am')||'all';S.set.auth_cooldown=Math.max(1,Math.min(600,Number(fd.get('ac'))||5));
+  S.set.web_port=Number(fd.get('port'))||8080;S.set.default_max_retries=Number(fd.get('mr'))||0;S.set.access_mode=fd.get('am')||'all';S.set.auth_cooldown=Math.max(1,Math.min(600,Number(fd.get('ac'))||5));S.set.log_level=fd.get('ll')||'info';
   pu('/api/settings',S.set).then(function(){toast('设置已保存')}).catch(function(e){toast('保存失败: '+e.message)});
   return false;
 }
@@ -205,12 +212,12 @@ function saveSet(ev){
 /* ========== 日志 ========== */
 function fLog(l){
   var ts=l.ts?new Date(l.ts).toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
-  var c={er:'er',wn:'wn',ok:'ok'}[l.lv]||'';
-  var px={er:'!',wn:'~',ok:'·'}[l.lv]||'·';
+  var c={er:'er',wn:'wn',ok:'ok',debug:'debug',info:'',warn:'warn',error:'error'}[l.lv]||'';
+  var px={er:'!',wn:'~',ok:'·',debug:'#',info:'·',warn:'~',error:'!'}[l.lv]||'·';
   return '<div><span class="ts">'+ts+'</span> <span class="'+c+'">'+px+'</span> '+e(l.m)+'</div>';
 }
 function addLog(l){
-  S.logs.push(l);if(S.logs.length>800)S.logs.shift();
+  S.logs.push(l);if(S.logs.length>1000)S.logs.shift();
   var box=document.getElementById('log');if(!box)return;
   box.insertAdjacentHTML('beforeend',fLog(l));
   var cnt=box.previousElementSibling.querySelector('span');
@@ -219,7 +226,7 @@ function addLog(l){
 function sBot(){var el=document.getElementById('log');if(el)el.scrollTop=el.scrollHeight}
 
 function connSSE(){if(S.evt)return;
-  try{S.evt=new EventSource('/api/logs/stream');S.evt.onmessage=function(ev){try{addLog(JSON.parse(ev.data))}catch(ex){}};S.evt.onerror=function(){S.evt.close();S.evt=null}}catch(ex){}
+  try{S.evt=new EventSource('/api/logs/stream');S.evt.onmessage=function(ev){try{addLog(JSON.parse(ev.data))}catch(ex){}};S.evt.onerror=function(){S.evt.close();S.evt=null;setTimeout(connSSE,3000)}}catch(ex){}
 }
 
 /* ========== 操作 ========== */

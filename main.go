@@ -41,7 +41,13 @@ func main() {
 	fmt.Println(banner)
 	log.Println("esurfing-go-webui starting")
 
-	logHub := NewLogHub(1000)
+	dataDir := filepath.Dir(*configPath)
+	if dataDir != "." {
+		_ = os.MkdirAll(dataDir, 0755)
+	}
+
+	logHub := NewLogHub(1000, filepath.Join(dataDir, "log"))
+	defer logHub.Close()
 	manager := NewManager(*configPath, logHub)
 
 	if err := manager.Load(); err != nil {
@@ -90,7 +96,7 @@ func main() {
 		Addr:         fmt.Sprintf("%s:%d", bindAddr, webPort),
 		Handler:      mux,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 0,
+		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
@@ -100,10 +106,6 @@ func main() {
 			log.Fatalf("server error: %v", err)
 		}
 	}()
-
-	if dataDir := filepath.Dir(*configPath); dataDir != "." {
-		_ = os.MkdirAll(dataDir, 0755)
-	}
 
 	manager.StartEnabled()
 	log.Println("enabled clients started")

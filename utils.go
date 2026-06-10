@@ -118,7 +118,13 @@ const ConfigEndTag = "//config.campus.js.chinatelecom.com-->"
 // FormatEConfig 从HTML中提取并格式化服务器配置XML
 func FormatEConfig(data []byte) ([]byte, error) {
 	str1 := strings.Split(string(data), ConfigStartTag)
+	if len(str1) < 2 {
+		return nil, errors.New("config start tag not found in response")
+	}
 	str2 := strings.Split(str1[1], ConfigEndTag)
+	if len(str2) < 1 {
+		return nil, errors.New("config end tag not found in response")
+	}
 
 	str3 := strings.ReplaceAll(str2[0], "&width=0", "")
 	str4 := strings.ReplaceAll(str3, "&adtype=0", "")

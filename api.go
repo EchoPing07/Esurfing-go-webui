@@ -214,6 +214,10 @@ func (a *API) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	// 豁免 SSE 长连接的 WriteTimeout
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
+
 	ch := a.logHub.Subscribe()
 	defer a.logHub.Unsubscribe(ch)
 
