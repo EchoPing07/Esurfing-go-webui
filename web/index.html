@@ -5,384 +5,710 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/svg+xml" href="/icon.svg">
 <link rel="alternate icon" type="image/x-icon" href="/favicon.ico">
-<title>Esurfing-go</title>
+<title>ESurfing_Go</title>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+[x-cloak]{display:none!important}
 :root{--bg:#e5e5e5;--s:#fff;--b:#c0c0c0;--t:#111;--t2:#666;--t3:#999;--fm:Menlo,Consolas,monospace}
-body{font:14px/1.5 -apple-system,sans-serif;background:var(--bg);color:var(--t)}
+body{font:14px/1.5 -apple-system,sans-serif;background:var(--bg);color:var(--t);overflow-y:scroll;scrollbar-width:none;-ms-overflow-style:none}
+body::-webkit-scrollbar{display:none}
 .wrap{max-width:860px;margin:auto;padding:0 16px}
+
+/* === Header === */
 .hdr{background:var(--s);border-bottom:1px solid var(--b);position:sticky;top:0;z-index:50}
-.hdr-in{display:flex;align-items:center;justify-content:space-between;padding:10px 0;gap:12px;flex-wrap:wrap}
+.hdr-in{display:flex;align-items:center;justify-content:space-between;padding:10px 8px;gap:12px;flex-wrap:wrap}
 .logo{font-weight:700;font-size:15px;white-space:nowrap}
 .tabs{display:flex;gap:2px}
-.tab{padding:4px 12px;border:none;background:none;color:var(--t2);cursor:pointer;font:500 13px inherit}
-.tab.on{color:var(--t);border-bottom:2px solid var(--t)}
+.tab{padding:4px 12px;border:none;background:none;color:var(--t2);cursor:pointer;font:500 13px inherit;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.tab:hover{color:var(--t)}
+.tab.on{color:var(--t);border-bottom-color:var(--t)}
+.tab:focus-visible{outline:2px solid var(--t);outline-offset:2px}
+
+/* === Main === */
 .main{padding:16px 0 48px}
-.sum{display:flex;gap:20px;padding:8px 0;font-size:13px;color:var(--t2);flex-wrap:wrap}
-.sum b{color:var(--t)}
+
+/* === Summary === */
+.sum{display:flex;gap:0;padding:8px 0;font-size:13px;color:var(--t2);flex-wrap:wrap;align-items:center}
+.sum-item{display:flex;align-items:center;gap:6px;padding:0 16px}
+.sum-item:first-child{padding-left:0}
+.sum-item+.sum-item{border-left:1px solid var(--b)}
+.sum b{color:var(--t);font-size:16px;font-weight:700}
+
+/* === Grid === */
 .grid{display:grid;gap:12px;margin-top:12px}
 @media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
+
+/* === Card === */
 .card{border:1px solid var(--b);background:var(--s);min-height:120px}
-.ch{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--b)}
-.cn{font:600 14px/1 var(--fm)}
-.cs{display:flex;align-items:center;gap:10px;padding:10px 12px;font-size:13px;min-height:36px}
-.cs .ip{font-family:var(--fm);color:var(--t2)}
-.cm{display:flex;gap:20px;padding:4px 12px 12px;font-size:12px;color:var(--t2);flex-wrap:wrap;min-height:28px}
-.cm b{color:var(--t);font-weight:600}
-.cf{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--b);background:#f0f0f0}
-.cf .sp{flex:1}
-.tgl{width:40px;height:20px;border:1px solid #999;background:#ccc;cursor:pointer;position:relative;flex-shrink:0}
+
+/* === Card Header === */
+.card-hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--b)}
+.card-hdr-left{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.card-name{font:600 14px/1 var(--fm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* === Status Badge === */
+.status-badge{display:flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;flex-shrink:0}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.status-dot.online{background:var(--t)}
+.status-dot.offline{background:transparent;border:2px solid var(--t3)}
+.status-dot.auth{background:var(--t);animation:pulse 1.5s ease-in-out infinite}
+.status-dot.disabled{background:var(--t3)}
+.status-dot.unconfig{background:transparent;border:2px solid var(--t3)}
+.status-label{color:var(--t2);font-size:12px}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@media(prefers-reduced-motion:reduce){.status-dot.auth{animation:none}}
+
+/* === Info Grid === */
+.info-grid{display:grid;grid-template-columns:72px 1fr;gap:0;padding:8px 12px;font-size:13px}
+.info-row{display:contents}
+.info-label{color:var(--t3);font-size:12px;padding:3px 0;white-space:nowrap}
+.info-value{color:var(--t);padding:3px 0;font-size:13px;word-break:break-all}
+.info-value.mono{font-family:var(--fm);font-size:12px}
+.info-value.danger{color:#b00;font-weight:600}
+.info-value.dim{color:var(--t3)}
+
+/* === Card Footer === */
+.card-ftr{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--b);background:#f0f0f0;align-items:center}
+.card-ftr .sp{flex:1}
+
+/* === Toggle === */
+.tgl{width:44px;height:24px;border:1px solid #999;background:#ccc;cursor:pointer;position:relative;flex-shrink:0;border-radius:2px;transition:background .15s,border-color .15s}
+.tgl:focus-visible{outline:2px solid var(--t);outline-offset:2px}
 .tgl.on{background:var(--t);border-color:var(--t)}
-.tgl::after{content:'';position:absolute;top:1px;left:1px;width:16px;height:16px;background:#fff}
-.tgl.on::after{left:21px}
-.btn{padding:4px 12px;border:1px solid var(--b);background:var(--s);font:inherit;font-size:12px;cursor:pointer;color:var(--t)}
+.tgl::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:1px;transition:left .15s}
+.tgl.on::after{left:22px}
+
+/* === Buttons === */
+.btn{padding:6px 14px;border:1px solid var(--b);background:var(--s);font:inherit;font-size:12px;cursor:pointer;color:var(--t);min-height:32px;transition:background .15s}
 .btn:hover{background:#f0f0f0}
+.btn:focus-visible{outline:2px solid var(--t);outline-offset:2px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
 .btn-p{background:var(--t);color:var(--s);border-color:var(--t)}
 .btn-p:hover{background:#333}
 .btn-d{color:#b00;border-color:#b00;background:var(--s)}
 .btn-d:hover{background:#fff0f0}
-.add{margin-top:12px;padding:14px;border:1px dashed var(--b);background:var(--s);text-align:center;cursor:pointer;color:var(--t2);font-size:13px}
+
+/* === Add Button === */
+.add{margin-top:12px;padding:14px;border:1px dashed var(--b);background:var(--s);text-align:center;cursor:pointer;color:var(--t2);font-size:13px;transition:border-color .15s,color .15s}
 .add:hover{border-color:var(--t);color:var(--t)}
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;z-index:100}
-.ov.show{display:flex}
+.add:focus-visible{outline:2px solid var(--t);outline-offset:2px}
+
+/* === Modal === */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:100}
 .md{background:var(--s);border:1px solid var(--b);width:100%;max-width:440px;max-height:90vh;overflow:auto;margin:16px}
 .mh{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--b)}
 .mh h2{font-size:14px;font-weight:600}
 .mb{padding:14px}
-.mf{display:flex;padding:10px 14px;border-top:1px solid var(--b);background:#f0f0f0}
+.mf{display:flex;padding:10px 14px;border-top:1px solid var(--b);background:#f0f0f0;gap:6px}
 .mf .btn{flex:1;text-align:center}
+
+/* === Forms === */
 .fg{margin-bottom:10px}
 .fg:last-child{margin-bottom:0}
 .fg label{display:block;font-size:11px;font-weight:600;color:var(--t2);letter-spacing:.04em;margin-bottom:2px;text-transform:uppercase}
 .fg input,.fg select{width:100%;padding:5px 8px;border:1px solid var(--b);font:inherit;font-size:13px;background:var(--s)}
 .fg input:focus,.fg select:focus{outline:none;border-color:var(--t)}
+.fg input:focus-visible,.fg select:focus-visible{outline:2px solid var(--t);outline-offset:2px}
 .fg input[readonly]{background:#f5f5f5;color:var(--t3)}
 .fg .h{font-size:11px;color:var(--t3);margin-top:2px}
 .r2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.if-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--b);cursor:pointer;font-size:13px;margin-bottom:4px;background:var(--s)}
+
+/* === Settings === */
+.settings-group-title{font:600 12px/1 -apple-system,sans-serif;color:var(--t3);padding:0 0 8px;letter-spacing:.04em;text-transform:uppercase}
+.settings-body{padding:14px}
+
+/* === Interface Selector === */
+.if-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--b);cursor:pointer;font-size:13px;margin-bottom:4px;background:var(--s);min-height:36px;transition:border-color .15s}
 .if-row:hover{border-color:var(--t)}
 .if-row.sel{border-color:var(--t);background:#f8f8f8}
+.if-row:focus-visible{outline:2px solid var(--t);outline-offset:2px}
 .if-row .if-n{font:600 12px var(--fm);flex:1}
 .if-row .if-ip{font:12px var(--fm);color:var(--t2)}
 .if-row .if-st{font-size:11px;color:var(--t3)}
 .if-row .if-up{color:var(--t)}
 .if-row .if-used{font-size:11px;color:var(--t3);background:#f0f0f0;padding:1px 6px;border-radius:2px}
+
+/* === Log Viewer === */
 .log-card{border:1px solid var(--b);background:var(--s)}
 .log-bar{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-bottom:1px solid var(--b);background:#f0f0f0;font:12px var(--fm);color:var(--t2)}
-.log-bar button{background:none;border:none;color:var(--t3);cursor:pointer;font:inherit;padding:2px 6px}
+.log-bar-btns{display:flex;gap:4px}
+.log-bar button{background:none;border:none;color:var(--t3);cursor:pointer;font:inherit;padding:2px 6px;transition:color .15s}
 .log-bar button:hover{color:var(--t)}
+.log-bar button:focus-visible{outline:2px solid var(--t);outline-offset:2px}
 .log{font:12px/1.8 var(--fm);color:var(--t2);height:420px;overflow:auto;padding:6px 12px}
 .log .ts{color:var(--t3)}.log .er{color:var(--t);font-weight:600}.log .ok{color:var(--t2)}.log .wn{color:var(--t2);font-weight:500}.log .debug{color:var(--t3)}.log .warn{color:var(--t2);font-weight:500}.log .error{color:var(--t);font-weight:600}
+
+/* === Toast === */
 .tw{position:fixed;top:8px;right:8px;z-index:200;display:flex;flex-direction:column;gap:4px}
 .toast{background:var(--s);border:1px solid var(--b);padding:6px 12px;font-size:13px}
+
+/* === Empty === */
 .empty{text-align:center;padding:48px 16px;color:var(--t3);font-size:13px}
+.empty .btn{margin-top:12px}
+
+/* === Transition Utilities === */
+.transition{transition-property:opacity,transform;transition-timing-function:cubic-bezier(.4,0,.2,1)}
+.duration-150{transition-duration:150ms}
+.duration-200{transition-duration:200ms}
+.ease-out{transition-timing-function:cubic-bezier(0,0,.2,1)}
+.ease-in{transition-timing-function:cubic-bezier(.4,0,1,1)}
+.opacity-0{opacity:0}
+.opacity-100{opacity:1}
+.scale-95{transform:scale(.95)}
+.scale-100{transform:scale(1)}
+.translate-x-4{transform:translateX(1rem)}
+.translate-x-0{transform:translateX(0)}
 </style>
 </head>
-<body>
+<body x-data="app()" x-init="init()" x-cloak>
 
 <header class="hdr">
   <div class="wrap hdr-in">
-    <span class="logo">Esurfing-go</span>
-    <nav class="tabs" id="tabs">
-      <button class="tab on" data-t="list">列表</button>
-      <button class="tab" data-t="more">更多</button>
+    <span class="logo">ESurfing_Go</span>
+    <nav class="tabs">
+      <button class="tab" :class="{'on': tab==='list'}" @click="switchTab('list')">列表</button>
+      <button class="tab" :class="{'on': tab==='more'}" @click="switchTab('more')">更多</button>
     </nav>
   </div>
 </header>
 
 <main class="main"><div class="wrap">
-  <div id="v-list"></div>
-  <div id="v-more" style="display:none"></div>
+
+  <!-- ========== 列表视图 ========== -->
+  <div x-show="tab==='list'">
+
+    <template x-if="!loading">
+      <div>
+        <div class="sum">
+          <span class="sum-item"><b x-text="stats.total"></b> 网口</span>
+          <span class="sum-item"><b x-text="stats.enabled"></b> 启用</span>
+          <span class="sum-item"><b x-text="stats.disabled"></b> 禁用</span>
+          <span class="sum-item"><b x-text="stats.online"></b> 在线</span>
+          <span class="sum-item" x-show="stats.offline > 0"><b x-text="stats.offline"></b> 离线</span>
+        </div>
+
+        <template x-if="interfaces.length > 0">
+          <div class="grid">
+            <template x-for="f in interfaces" :key="f.interface">
+              <div class="card">
+                <div class="card-hdr">
+                  <div class="card-hdr-left">
+                    <span class="card-name" x-text="f.interface"></span>
+                    <div class="status-badge">
+                      <span class="status-dot" :class="cardStatus(f).dotClass"></span>
+                      <span class="status-label" x-text="cardStatus(f).label"></span>
+                    </div>
+                  </div>
+                  <div class="tgl" :class="{'on': f.enabled}" @click="toggle(f.interface)" :title="f.enabled ? '禁用自动认证' : '启用自动认证'" tabindex="0" role="switch" :aria-checked="f.enabled" @keydown.enter.prevent="toggle(f.interface)" @keydown.space.prevent="toggle(f.interface)"></div>
+                </div>
+
+                <div class="info-grid">
+                  <template x-for="row in infoRows(f)" :key="row.label">
+                    <div class="info-row">
+                      <span class="info-label" x-text="row.label"></span>
+                      <span class="info-value" :class="{'mono': row.mono, 'danger': row.danger, 'dim': row.dim}" x-text="row.value"></span>
+                    </div>
+                  </template>
+                </div>
+
+                <div class="card-ftr">
+                  <template x-if="!f.enabled || cardStatus(f).actualSt === 'online'">
+                    <button class="btn btn-d" @click="logout(f.interface)" :disabled="busy[f.interface]">断开</button>
+                  </template>
+                  <template x-if="f.enabled && cardStatus(f).actualSt === 'auth'">
+                    <button class="btn" disabled>连接中...</button>
+                  </template>
+                  <template x-if="f.enabled && cardStatus(f).actualSt !== 'online' && cardStatus(f).actualSt !== 'auth' && f.username">
+                    <button class="btn btn-p" @click="login(f.interface)" :disabled="busy[f.interface]">连接</button>
+                  </template>
+                  <span class="sp"></span>
+                  <button class="btn" @click="openEdit(f.interface)">编辑</button>
+                  <button class="btn btn-d" @click="openDelete(f.interface)">删除</button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="interfaces.length === 0">
+          <div class="empty">
+            <p>没有配置任何网口</p>
+            <button class="btn btn-p" @click="openAdd()">＋ 添加网口</button>
+          </div>
+        </template>
+
+        <div class="add" @click="openAdd()" x-show="interfaces.length > 0">＋ 添加网口</div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ========== 更多视图 ========== -->
+  <div x-show="tab==='more'">
+
+    <!-- 全局设置 -->
+    <div class="card" style="min-height:auto">
+      <div class="card-hdr">
+        <span style="font-weight:600">全局设置</span>
+        <button class="btn btn-p" @click="saveSettings()">保存</button>
+      </div>
+
+      <div class="settings-body">
+        <div class="settings-group-title">网络设置</div>
+        <div class="fg">
+          <label>WEB 端口</label>
+          <input type="number" x-model.number="settings.web_port" min="1" max="65535">
+          <div class="h">修改后需重启程序生效</div>
+        </div>
+        <div class="fg">
+          <label>访问限制</label>
+          <select x-model="settings.access_mode">
+            <option value="all">无限制</option>
+            <option value="lan">仅内网</option>
+            <option value="localhost">仅本机</option>
+          </select>
+          <div class="h">修改后需重启程序生效</div>
+        </div>
+      </div>
+
+      <div class="settings-body" style="border-top:1px solid var(--b)">
+        <div class="settings-group-title">认证设置</div>
+        <div class="fg">
+          <label>默认最大重试次数</label>
+          <input type="number" x-model.number="settings.default_max_retries" min="0">
+          <div class="h">失败次数达到后自动禁用网口，0=不限制</div>
+        </div>
+        <div class="fg">
+          <label>认证冷却时间（秒）</label>
+          <input type="number" x-model.number="settings.auth_cooldown" min="1" max="600">
+          <div class="h">两次认证操作之间的最小间隔，防止重复认证，默认5秒</div>
+        </div>
+      </div>
+
+      <div class="settings-body" style="border-top:1px solid var(--b)">
+        <div class="settings-group-title">日志设置</div>
+        <div class="fg">
+          <label>日志等级</label>
+          <select x-model="settings.log_level">
+            <option value="debug">Debug</option>
+            <option value="info">Info</option>
+            <option value="warn">Warn</option>
+            <option value="error">Error</option>
+          </select>
+          <div class="h">仅显示该等级及以上的日志，默认 Info</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 日志 -->
+    <div style="margin-top:16px">
+      <div class="log-card">
+        <div class="log-bar">
+          <span x-text="logs.length + ' 条'"></span>
+          <div class="log-bar-btns">
+            <button @click="scrollLogBottom()" title="滚动到底部">↓</button>
+            <button @click="clearLogs()" title="清空显示">清空</button>
+          </div>
+        </div>
+        <div class="log" id="log" x-ref="logBox" aria-live="polite">
+          <template x-for="(l, i) in logs" :key="i">
+            <div><span class="ts" x-text="fmtLogTime(l.ts)"></span> <span :class="logClass(l.lv)" x-text="logPrefix(l.lv)"></span> <span x-text="l.m"></span></div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div></main>
 
-<div class="ov" id="ov"><div class="md" id="md"></div></div>
-<div class="tw" id="tw"></div>
+<!-- ========== Modal ========== -->
+<template x-if="modal.show">
+  <div class="ov" @click.self="closeModal()"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0">
+    <div class="md"
+      x-transition:enter="transition ease-out duration-200"
+      x-transition:enter-start="opacity-0 scale-95"
+      x-transition:enter-end="opacity-100 scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 scale-100"
+      x-transition:leave-end="opacity-0 scale-95">
+
+      <!-- 添加网口 -->
+      <template x-if="modal.type==='add'">
+        <div>
+          <div class="mh"><h2>添加网口</h2><button class="btn" @click="closeModal()" style="border:none;padding:2px 6px">✕</button></div>
+          <div class="mb">
+            <div class="fg">
+              <label>选择网卡</label>
+              <div>
+                <template x-if="systemInterfaces.length > 0">
+                  <div>
+                    <template x-for="s in systemInterfaces" :key="s.name">
+                      <div class="if-row" :class="{'sel': addForm.selectedIf === s.name && !s.used}" @click="s.used ? toast('该网卡已添加') : selectIf(s.name)" :tabindex="s.used ? -1 : 0" @keydown.enter.prevent="!s.used && selectIf(s.name)">
+                        <span class="if-n" x-text="s.name"></span>
+                        <span class="if-ip" x-text="s.ip || '无IP'"></span>
+                        <span class="if-st" :class="{'if-up': s.is_up}" x-text="s.is_up ? '在线' : '离线'"></span>
+                        <span class="if-used" x-show="s.used">已使用</span>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="systemInterfaces.length === 0">
+                  <div class="empty" style="padding:16px">未检测到网卡，请手动输入</div>
+                </template>
+              </div>
+              <div style="margin-top:8px">
+                <label style="font-size:11px;font-weight:600;color:var(--t2)">或手动输入网卡名</label>
+                <input x-model="addForm.manual_if" placeholder="eth0 / WLAN / 以太网" style="margin-top:4px" @input="addForm.selectedIf=''">
+              </div>
+            </div>
+            <div class="fg"><label>账号</label><input x-model="addForm.username" required placeholder="校园网账号"></div>
+            <div class="fg"><label>密码</label><input x-model="addForm.password" type="password" required placeholder="密码"></div>
+            <div class="r2">
+              <div class="fg"><label>检查间隔 ms</label><input x-model.number="addForm.ci" type="number" min="0"><div class="h">0=默认10s</div></div>
+              <div class="fg"><label>重试间隔 ms</label><input x-model.number="addForm.ri" type="number" min="-1"><div class="h">负数=不重试</div></div>
+            </div>
+            <div class="r2">
+              <div class="fg"><label>最大重试次数</label><input x-model.number="addForm.mr" type="number" min="0"><div class="h">0=不限制</div></div>
+              <div class="fg"><label>DNS</label><input x-model="addForm.dns" placeholder="可选 119.29.29.29:53"></div>
+            </div>
+          </div>
+          <div class="mf">
+            <button class="btn" @click="closeModal()">取消</button>
+            <button class="btn btn-p" @click="saveAdd()">保存</button>
+          </div>
+        </div>
+      </template>
+
+      <!-- 编辑网口 -->
+      <template x-if="modal.type==='edit'">
+        <div>
+          <div class="mh"><h2 x-text="'编辑 · ' + editingName"></h2><button class="btn" @click="closeModal()" style="border:none;padding:2px 6px">✕</button></div>
+          <div class="mb">
+            <div class="fg"><label>网卡</label><input :value="editingName" readonly></div>
+            <div class="fg"><label>账号</label><input x-model="editForm.username" required></div>
+            <div class="fg"><label>密码</label><input x-model="editForm.password" type="password" required></div>
+            <div class="r2">
+              <div class="fg"><label>检查间隔 ms</label><input x-model.number="editForm.ci" type="number" min="0"></div>
+              <div class="fg"><label>重试间隔 ms</label><input x-model.number="editForm.ri" type="number" min="-1"></div>
+            </div>
+            <div class="r2">
+              <div class="fg"><label>最大重试次数</label><input x-model.number="editForm.mr" type="number" min="0"></div>
+              <div class="fg"><label>DNS</label><input x-model="editForm.dns"></div>
+            </div>
+          </div>
+          <div class="mf">
+            <button class="btn" @click="closeModal()">取消</button>
+            <button class="btn btn-p" @click="saveEdit()">保存</button>
+          </div>
+        </div>
+      </template>
+
+      <!-- 删除确认 -->
+      <template x-if="modal.type==='delete'">
+        <div>
+          <div class="mh"><h2>确认删除</h2><button class="btn" @click="closeModal()" style="border:none;padding:2px 6px">✕</button></div>
+          <div class="mb">
+            <p style="margin-bottom:12px">删除网口 <b x-text="editingName"></b> 及其配置？</p>
+          </div>
+          <div class="mf">
+            <button class="btn" @click="closeModal()">取消</button>
+            <button class="btn btn-d" @click="doDelete()">删除</button>
+          </div>
+        </div>
+      </template>
+
+    </div>
+  </div>
+</template>
+
+<!-- ========== Toast ========== -->
+<div class="tw">
+  <template x-for="t in toasts" :key="t.id">
+    <div class="toast" x-text="t.msg"
+      x-transition:enter="transition ease-out duration-150"
+      x-transition:enter-start="opacity-0 translate-x-4"
+      x-transition:enter-end="opacity-100 translate-x-0"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100"
+      x-transition:leave-end="opacity-0"></div>
+  </template>
+</div>
 
 <script>
-var S={t:'list',ifs:[],sysIfs:[],logs:[],set:{web_port:8080,default_max_retries:5,auth_cooldown:5,log_level:'info'},evt:null};
-var _busy={};
+function app() {
+  return {
+    tab: 'list',
+    loading: true,
+    interfaces: [],
+    systemInterfaces: [],
+    logs: [],
+    settings: { web_port: 8080, default_max_retries: 5, auth_cooldown: 5, log_level: 'info', access_mode: 'all' },
+    evt: null,
+    busy: {},
+    modal: { show: false, type: '', title: '' },
+    editingName: '',
+    addForm: { username: '', password: '', ci: 10000, ri: 10000, mr: 5, dns: '', manual_if: '', selectedIf: '' },
+    editForm: { username: '', password: '', ci: 0, ri: 0, mr: 0, dns: '' },
+    toasts: [],
+    _toastId: 0,
+    _timer: null,
 
-function g(u){return fetch(u).then(function(r){if(!r.ok)throw Error(r.status);return r.json()})}
-function p(u,d){return fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:d?JSON.stringify(d):''}).then(function(r){if(!r.ok)throw Error(r.status);return r.json().catch(function(){return{}})})}
-function pu(u,d){return fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(function(r){if(!r.ok)throw Error(r.status);return r.json().catch(function(){return{}})})}
-function dl(u){return fetch(u,{method:'DELETE'}).then(function(r){if(!r.ok)throw Error(r.status);return r.json().catch(function(){return{}})})}
+    get stats() {
+      var t = this.interfaces.length, en = 0, on = 0;
+      for (var i = 0; i < t; i++) {
+        if (this.interfaces[i].enabled) { en++; if (this.interfaces[i].status === 'online') on++; }
+      }
+      return { total: t, enabled: en, disabled: t - en, online: on, offline: en - on };
+    },
 
-function load(){
-  return Promise.all([g('/api/interfaces'),g('/api/settings'),g('/api/system/interfaces')]).then(function(r){
-    S.ifs=r[0];S.set=r[1];S.sysIfs=r[2];
-  }).catch(function(err){toast('加载失败: '+err.message)})
-}
+    init() {
+      this.loadData().then(() => { this.loading = false; });
+      this._timer = setInterval(() => { if (this.tab === 'list') this.loadData(); }, 15000);
+    },
 
-function loadLogs(){
-  return g('/api/logs').then(function(l){S.logs=l}).catch(function(){})
-}
+    async loadData() {
+      try {
+        var r = await Promise.all([
+          fetch('/api/interfaces').then(r => { if (!r.ok) throw Error(r.status); return r.json(); }),
+          fetch('/api/settings').then(r => { if (!r.ok) throw Error(r.status); return r.json(); }),
+          fetch('/api/system/interfaces').then(r => { if (!r.ok) throw Error(r.status); return r.json(); })
+        ]);
+        this.interfaces = r[0];
+        this.settings = r[1];
+        this.systemInterfaces = r[2];
+      } catch (e) {
+        this.toast('加载失败: ' + e.message);
+      }
+    },
 
-function loadSysIfs(){
-  return g('/api/system/interfaces').then(function(r){S.sysIfs=r}).catch(function(){})
-}
+    async loadLogs() {
+      try {
+        var r = await fetch('/api/logs').then(r => { if (!r.ok) throw Error(r.status); return r.json(); });
+        this.logs = r;
+      } catch (e) {}
+    },
 
-/* ========== 列表 ========== */
-function rList(){
-  var v=document.getElementById('v-list'),en=0,on=0,off=0,i,f;
-  for(i=0;i<S.ifs.length;i++){f=S.ifs[i];if(f.enabled){en++;if(f.status==='online')on++;else off++}}
-  var h='<div class="sum"><span><b>'+S.ifs.length+'</b> 网口</span><span><b>'+en+'</b> 启用</span><span><b>'+(S.ifs.length-en)+'</b> 禁用</span><span><b>'+on+'</b> 在线</span>';
-  if(off)h+='<span><b>'+off+'</b> 离线</span>';
-  h+='</div>';
-  if(S.ifs.length){h+='<div class="grid">';for(i=0;i<S.ifs.length;i++)h+=rCard(S.ifs[i]);h+='</div>'}else h+='<div class="empty">没有配置任何网口</div>';
-  h+='<div class="add" onclick="openAdd()">＋ 添加网口</div>';
-  v.innerHTML=h;
-}
+    async loadSysIfs() {
+      try {
+        var r = await fetch('/api/system/interfaces').then(r => { if (!r.ok) throw Error(r.status); return r.json(); });
+        this.systemInterfaces = r;
+      } catch (e) {}
+    },
 
-function rCard(f){
-  var actualSt=f.status||'offline';
-  var st=f.enabled?actualSt:'disabled';
-  var label={online:'● 在线',offline:'○ 离线',auth:'◎ 认证中',disabled:'○ 已禁用'}[st]||'○ '+st;
-  if(f.enabled&&!f.username)label='○ 未配置';
-  var hb=f.last_heartbeat?ago(f.last_heartbeat):'—';
-  var nhb=f.next_heartbeat?ago(f.next_heartbeat):'—';
-  var lg=f.last_login?ago(f.last_login):'—';
-  var ec=f.error_count||0,mr=f.max_retries||0;
-  var errTxt=mr>0?ec+'/'+mr:''+ec;
-  var errSt=(mr>0&&ec>=mr)?' style="color:#b00"':'';
-  var h='<div class="card"><div class="ch"><span class="cn">'+e(f.interface)+'</span><div class="tgl'+(f.enabled?' on':'')+'" onclick="tog(\''+e(f.interface)+'\')" title="启用/禁用自动认证"></div></div>';
-  h+='<div class="cs"><span>'+label+'</span>'+(f.user_ip?'<span class="ip">'+f.user_ip+'</span>':'')+'</div>';
-  h+='<div class="cm">';
-  if(f.username)h+='<span>账号 <b>'+e(f.username)+'</b></span>';
-  h+='<span>认证 <b>'+lg+'</b></span>';
-  h+='<span>心跳 <b>'+hb+'</b></span>';
-  if(actualSt==='online'&&f.next_heartbeat)h+='<span>下次 <b>'+nhb+'</b></span>';
-  h+='<span>错误 <b'+errSt+'>'+errTxt+'</b></span>';
-  if(mr>0)h+='<span>上限 <b>'+mr+'</b></span>';
-  h+='</div><div class="cf"><button class="btn" onclick="openEdit(\''+e(f.interface)+'\')">编辑</button><span class="sp"></span>';
-  if(!f.enabled){h+='<button class="btn btn-d" onclick="doOut(\''+e(f.interface)+'\')">断开</button>'}
-  else if(actualSt==='online')h+='<button class="btn btn-d" onclick="doOut(\''+e(f.interface)+'\')">断开</button>';
-  else if(actualSt==='auth')h+='<button class="btn" disabled>连接中...</button>';
-  else if(f.username)h+='<button class="btn btn-p" onclick="doIn(\''+e(f.interface)+'\')">连接</button>';
-  h+='<button class="btn btn-d" onclick="delIf(\''+e(f.interface)+'\')">删除</button></div></div>';
-  return h;
-}
+    switchTab(t) {
+      if (t === this.tab) return;
+      this.tab = t;
+      if (t === 'more') {
+        this.loadLogs().then(() => {
+          this.$nextTick(() => { this.scrollLogBottom(); this.connSSE(); });
+        });
+      }
+    },
 
-/* ========== 更多 ========== */
-function rMore(){
-  var v=document.getElementById('v-more');
-  var h=rSettingsH();
-  h+='<div style="margin-top:16px">'+rLogsH()+'</div>';
-  v.innerHTML=h;
-  sBot();connSSE();
-}
+    cardStatus(f) {
+      var actualSt = f.status || 'offline';
+      var st = f.enabled ? actualSt : 'disabled';
+      var dotClass, label;
+      if (!f.enabled) { dotClass = 'disabled'; label = '已禁用'; }
+      else if (f.enabled && !f.username) { dotClass = 'unconfig'; label = '未配置'; }
+      else if (actualSt === 'online') { dotClass = 'online'; label = '在线'; }
+      else if (actualSt === 'auth') { dotClass = 'auth'; label = '认证中'; }
+      else { dotClass = 'offline'; label = '离线'; }
+      return { actualSt, dotClass, label };
+    },
 
-function rSettingsH(){
-  var am=S.set.access_mode||'all';
-  var ll=S.set.log_level||'info';
-  return '<div class="card"><div class="ch"><span style="font-weight:600">全局设置</span></div><div class="mb">'
-    +'<form onsubmit="return saveSet(event)">'
-    +'<div class="r2"><div class="fg"><label>WEB 端口</label><input name="port" type="number" value="'+S.set.web_port+'" min="1" max="65535"><div class="h">修改后需重启程序生效</div></div>'
-    +'<div class="fg"><label>默认最大重试次数</label><input name="mr" type="number" value="'+S.set.default_max_retries+'" min="0"><div class="h">失败次数达到后自动禁用网口，0=不限制</div></div></div>'
-    +'<div class="fg"><label>认证冷却时间（秒）</label><input name="ac" type="number" value="'+(S.set.auth_cooldown||5)+'" min="1" max="600"><div class="h">两次认证操作之间的最小间隔，防止重复认证，默认5秒</div></div>'
-    +'<div class="fg"><label>日志等级</label><select name="ll">'
-    +'<option value="debug"'+(ll==='debug'?' selected':'')+'>Debug</option>'
-    +'<option value="info"'+(ll==='info'?' selected':'')+'>Info</option>'
-    +'<option value="warn"'+(ll==='warn'?' selected':'')+'>Warn</option>'
-    +'<option value="error"'+(ll==='error'?' selected':'')+'>Error</option>'
-    +'</select><div class="h">仅显示该等级及以上的日志，默认 Info</div></div>'
-    +'<div class="fg"><label>访问限制</label><select name="am">'
-    +'<option value="all"'+(am==='all'?' selected':'')+'>无限制</option>'
-    +'<option value="lan"'+(am==='lan'?' selected':'')+'>仅内网</option>'
-    +'<option value="localhost"'+(am==='localhost'?' selected':'')+'>仅本机</option>'
-    +'</select><div class="h">修改后需重启程序生效</div></div>'
-    +'<div class="mf" style="padding:12px 0 0;border:none;background:none"><button type="submit" class="btn btn-p">保存设置</button></div>'
-    +'</form></div></div>';
-}
+    infoRows(f) {
+      var rows = [];
+      var st = this.cardStatus(f);
+      rows.push({ label: 'IP', value: f.user_ip || '—', mono: true });
+      rows.push({ label: '账号', value: f.username || '—' });
+      rows.push({ label: '上次认证', value: f.last_login ? this.ago(f.last_login) : '—' });
+      rows.push({ label: '上次心跳', value: f.last_heartbeat ? this.ago(f.last_heartbeat) : '—' });
+      if (st.actualSt === 'online' && f.next_heartbeat) {
+        rows.push({ label: '下次心跳', value: this.ago(f.next_heartbeat) });
+      }
+      var ec = f.error_count || 0, mr = f.max_retries || 0;
+      var errTxt = mr > 0 ? ec + '/' + mr : '' + ec;
+      var danger = mr > 0 && ec >= mr;
+      rows.push({ label: '错误', value: errTxt, danger: danger });
+      return rows;
+    },
 
-function rLogsH(){
-  var h='<div class="log-card"><div class="log-bar"><span>'+S.logs.length+' 条</span><span><button onclick="sBot()">↓</button></span></div>';
-  h+='<div class="log" id="log">';
-  for(var i=0;i<S.logs.length;i++)h+=fLog(S.logs[i]);
-  h+='</div></div>';
-  return h;
-}
+    toggle(name) {
+      var f = this.find(name); if (!f) return;
+      if (!f.enabled && !f.username) { this.toast('请先填写账号密码'); this.openEdit(name); return; }
+      if (f.enabled) {
+        fetch('/api/interfaces/' + name + '/disable', { method: 'DELETE' })
+          .then(r => { if (!r.ok) throw Error(r.status); return r.json(); })
+          .then(() => { this.toast('已禁用'); this.loadData(); })
+          .catch(e => this.toast('操作失败: ' + e.message));
+      } else {
+        fetch('/api/interfaces/' + name + '/enable', { method: 'POST' })
+          .then(r => { if (!r.ok) throw Error(r.status); return r.json(); })
+          .then(() => { this.toast('已启用'); this.loadData(); })
+          .catch(e => this.toast('操作失败: ' + e.message));
+      }
+    },
 
-function saveSet(ev){
-  ev.preventDefault();var fd=new FormData(ev.target);
-  S.set.web_port=Number(fd.get('port'))||8080;S.set.default_max_retries=Number(fd.get('mr'))||0;S.set.access_mode=fd.get('am')||'all';S.set.auth_cooldown=Math.max(1,Math.min(600,Number(fd.get('ac'))||5));S.set.log_level=fd.get('ll')||'info';
-  pu('/api/settings',S.set).then(function(){toast('设置已保存')}).catch(function(e){toast('保存失败: '+e.message)});
-  return false;
-}
+    login(name) {
+      if (this.busy[name]) return;
+      this.busy[name] = true;
+      fetch('/api/interfaces/' + name + '/login', { method: 'POST' })
+        .then(r => { if (!r.ok) throw Error(r.status); return r.json(); })
+        .then(() => { this.toast('正在连接...'); this.loadData(); })
+        .catch(e => this.toast('连接失败: ' + e.message))
+        .finally(() => setTimeout(() => { delete this.busy[name]; }, 2000));
+    },
 
-/* ========== 日志 ========== */
-function fLog(l){
-  var ts=l.ts?new Date(l.ts).toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
-  var c={er:'er',wn:'wn',ok:'ok',debug:'debug',info:'',warn:'warn',error:'error'}[l.lv]||'';
-  var px={er:'!',wn:'~',ok:'·',debug:'#',info:'·',warn:'~',error:'!'}[l.lv]||'·';
-  return '<div><span class="ts">'+ts+'</span> <span class="'+c+'">'+px+'</span> '+e(l.m)+'</div>';
-}
-function addLog(l){
-  S.logs.push(l);if(S.logs.length>1000)S.logs.shift();
-  var box=document.getElementById('log');if(!box)return;
-  box.insertAdjacentHTML('beforeend',fLog(l));
-  var cnt=box.previousElementSibling.querySelector('span');
-  if(cnt)cnt.textContent=S.logs.length+' 条';sBot();
-}
-function sBot(){var el=document.getElementById('log');if(el)el.scrollTop=el.scrollHeight}
+    logout(name) {
+      if (this.busy[name]) return;
+      this.busy[name] = true;
+      fetch('/api/interfaces/' + name + '/force-logout', { method: 'DELETE' })
+        .then(r => { if (!r.ok) throw Error(r.status); return r.json(); })
+        .then(() => { this.toast('已断开'); this.loadData(); })
+        .catch(e => this.toast('断开失败: ' + e.message))
+        .finally(() => setTimeout(() => { delete this.busy[name]; }, 2000));
+    },
 
-function connSSE(){if(S.evt)return;
-  try{S.evt=new EventSource('/api/logs/stream');S.evt.onmessage=function(ev){try{addLog(JSON.parse(ev.data))}catch(ex){}};S.evt.onerror=function(){S.evt.close();S.evt=null;setTimeout(connSSE,3000)}}catch(ex){}
-}
+    find(name) {
+      for (var i = 0; i < this.interfaces.length; i++) if (this.interfaces[i].interface === name) return this.interfaces[i];
+      return null;
+    },
 
-/* ========== 操作 ========== */
-function tog(name){
-  var f=find(name);if(!f)return;
-  if(!f.enabled&&!f.username){toast('请先填写账号密码');openEdit(name);return}
-  if(f.enabled){
-    dl('/api/interfaces/'+name+'/disable').then(function(){
-      toast('已禁用');load().then(rList);
-    }).catch(function(e){toast('操作失败: '+e.message)});
-  }else{
-    p('/api/interfaces/'+name+'/enable').then(function(){
-      toast('已启用');load().then(rList);
-    }).catch(function(e){toast('操作失败: '+e.message)});
-  }
-}
+    openAdd() {
+      this.addForm = { username: '', password: '', ci: 10000, ri: 10000, mr: this.settings.default_max_retries || 5, dns: '', manual_if: '', selectedIf: '' };
+      this.loadSysIfs().then(() => {
+        this.modal = { show: true, type: 'add', title: '添加网口' };
+      });
+    },
 
-function doIn(name){
-  if(_busy[name])return;_busy[name]=true;
-  p('/api/interfaces/'+name+'/login').then(function(){
-    toast('正在连接...');load().then(rList);
-  }).catch(function(e){toast('连接失败: '+e.message)}).finally(function(){setTimeout(function(){delete _busy[name]},2000)});
-}
+    selectIf(name) {
+      this.addForm.selectedIf = name;
+      this.addForm.manual_if = '';
+    },
 
-function doOut(name){
-  if(_busy[name])return;_busy[name]=true;
-  dl('/api/interfaces/'+name+'/force-logout').then(function(){
-    toast('已断开');load().then(rList);
-  }).catch(function(e){toast('断开失败: '+e.message)}).finally(function(){setTimeout(function(){delete _busy[name]},2000)});
-}
+    saveAdd() {
+      var iface = this.addForm.selectedIf || this.addForm.manual_if.trim();
+      if (!iface) { this.toast('请选择或输入网卡名'); return; }
+      if (this.find(iface)) { this.toast('网卡已存在'); return; }
+      var d = {
+        interface: iface, username: this.addForm.username.trim(), password: this.addForm.password,
+        check_interval: this.addForm.ci || 0, retry_interval: this.addForm.ri || 0,
+        max_retries: this.addForm.mr || 0, bind_interface: iface, dns_address: this.addForm.dns.trim()
+      };
+      fetch('/api/interfaces', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) })
+        .then(r => { if (!r.ok) throw Error(r.status); return r.json().catch(() => ({})); })
+        .then(() => { this.toast('已添加'); this.closeModal(); this.loadData(); })
+        .catch(e => this.toast('添加失败: ' + e.message));
+    },
 
-function find(name){for(var i=0;i<S.ifs.length;i++)if(S.ifs[i].interface===name)return S.ifs[i];return null}
+    openEdit(name) {
+      var f = this.find(name); if (!f) return;
+      this.editingName = name;
+      this.editForm = {
+        username: f.username || '', password: f.password || '',
+        ci: f.check_interval || 0, ri: f.retry_interval ?? 0,
+        mr: f.max_retries || 0, dns: f.dns_address || ''
+      };
+      this.modal = { show: true, type: 'edit', title: '编辑 · ' + name };
+    },
 
-/* ========== 弹窗: 添加 ========== */
-function openAdd(){
-  S._ed=null;
-  loadSysIfs().then(function(){
-    showM('添加网口',addFormH());
-  });
-}
+    saveEdit() {
+      var d = {
+        interface: this.editingName, username: this.editForm.username.trim(), password: this.editForm.password,
+        check_interval: this.editForm.ci || 0, retry_interval: this.editForm.ri || 0,
+        max_retries: this.editForm.mr || 0, bind_interface: this.editingName, dns_address: this.editForm.dns.trim()
+      };
+      fetch('/api/interfaces/' + this.editingName, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) })
+        .then(r => { if (!r.ok) throw Error(r.status); return r.json().catch(() => ({})); })
+        .then(() => { this.toast('已更新'); this.closeModal(); this.loadData(); })
+        .catch(e => this.toast('更新失败: ' + e.message));
+    },
 
-function addFormH(){
-  var h='<form id="fm" onsubmit="return saveF(event)">';
-  h+='<div class="fg"><label>选择网卡</label>';
-  h+='<div id="if-list">';
-  if(S.sysIfs.length){
-    for(var i=0;i<S.sysIfs.length;i++){
-      var s=S.sysIfs[i];
-      var cls='if-row'+(i===0&&!s.used?' sel':'');
-      var dis=s.used?' onclick="toast(\'该网卡已添加\')"':' onclick="pickIf(this,\''+e(s.name)+'\')"';
-      h+='<div class="'+cls+'"'+dis+' data-if="'+e(s.name)+'">';
-      h+='<span class="if-n">'+e(s.name)+'</span>';
-      h+='<span class="if-ip">'+(s.ip||'无IP')+'</span>';
-      h+='<span class="if-st '+(s.is_up?'if-up':'')+'">'+(s.is_up?'在线':'离线')+'</span>';
-      if(s.used)h+='<span class="if-used">已使用</span>';
-      h+='</div>';
+    openDelete(name) {
+      this.editingName = name;
+      this.modal = { show: true, type: 'delete', title: '确认删除' };
+    },
+
+    doDelete() {
+      fetch('/api/interfaces/' + this.editingName, { method: 'DELETE' })
+        .then(r => { if (!r.ok) throw Error(r.status); return r.json().catch(() => ({})); })
+        .then(() => { this.toast('已删除'); this.closeModal(); this.loadData(); })
+        .catch(e => this.toast('删除失败: ' + e.message));
+    },
+
+    closeModal() {
+      this.modal.show = false;
+    },
+
+    saveSettings() {
+      this.settings.auth_cooldown = Math.max(1, Math.min(600, this.settings.auth_cooldown || 5));
+      fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.settings) })
+        .then(r => { if (!r.ok) throw Error(r.status); return r.json().catch(() => ({})); })
+        .then(() => this.toast('设置已保存'))
+        .catch(e => this.toast('保存失败: ' + e.message));
+    },
+
+    fmtLogTime(ts) {
+      if (!ts) return '';
+      return new Date(ts).toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    },
+
+    logClass(lv) {
+      return { er: 'er', wn: 'wn', ok: 'ok', debug: 'debug', info: '', warn: 'warn', error: 'error' }[lv] || '';
+    },
+
+    logPrefix(lv) {
+      return { er: '!', wn: '~', ok: '·', debug: '#', info: '·', warn: '~', error: '!' }[lv] || '·';
+    },
+
+    addLog(l) {
+      this.logs.push(l);
+      if (this.logs.length > 1000) this.logs.shift();
+      this.$nextTick(() => this.scrollLogBottom());
+    },
+
+    scrollLogBottom() {
+      var el = this.$refs.logBox;
+      if (el) el.scrollTop = el.scrollHeight;
+    },
+
+    clearLogs() {
+      this.logs = [];
+    },
+
+    connSSE() {
+      if (this.evt) return;
+      try {
+        this.evt = new EventSource('/api/logs/stream');
+        this.evt.onmessage = (ev) => { try { this.addLog(JSON.parse(ev.data)); } catch (ex) {} };
+        this.evt.onerror = () => { this.evt.close(); this.evt = null; setTimeout(() => this.connSSE(), 3000); };
+      } catch (ex) {}
+    },
+
+    toast(msg) {
+      var id = ++this._toastId;
+      this.toasts.push({ id, msg });
+      setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== id); }, 3000);
+    },
+
+    ago(iso) {
+      var s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+      if (s < 0) return '刚刚';
+      if (s < 60) return s + '秒前';
+      if (s < 3600) return Math.floor(s / 60) + '分钟前';
+      if (s < 86400) return Math.floor(s / 3600) + '小时前';
+      return Math.floor(s / 86400) + '天前';
     }
-  }else{
-    h+='<div class="empty" style="padding:16px">未检测到网卡，请手动输入</div>';
-  }
-  h+='</div>';
-  h+='<div style="margin-top:8px"><label style="font-size:11px;font-weight:600;color:var(--t2)">或手动输入网卡名</label>';
-  h+='<input name="manual_if" placeholder="eth0 / WLAN / 以太网" style="margin-top:4px" oninput="clearIfSel()"></div>';
-  h+='</div>';
-  h+='<div class="fg"><label>账号</label><input name="username" required placeholder="校园网账号"></div>';
-  h+='<div class="fg"><label>密码</label><input name="password" type="password" required placeholder="密码"></div>';
-  h+='<div class="r2"><div class="fg"><label>检查间隔 ms</label><input name="ci" type="number" value="10000" min="0"><div class="h">0=默认10s</div></div>';
-  h+='<div class="fg"><label>重试间隔 ms</label><input name="ri" type="number" value="10000" min="-1"><div class="h">负数=不重试</div></div></div>';
-  h+='<div class="r2"><div class="fg"><label>最大重试次数</label><input name="mr" type="number" value="'+S.set.default_max_retries+'" min="0"><div class="h">0=不限制</div></div>';
-  h+='<div class="fg"><label>DNS</label><input name="dns" placeholder="可选 119.29.29.29:53"></div></div>';
-  h+='<div class="mf"><button type="button" class="btn" onclick="closeM()">取消</button><button type="submit" class="btn btn-p">保存</button></div></form>';
-  return h;
+  };
 }
-
-function pickIf(el,name){
-  var rows=document.querySelectorAll('.if-row');
-  for(var i=0;i<rows.length;i++){rows[i].classList.remove('sel')}
-  el.classList.add('sel');
-  var mi=document.querySelector('[name=manual_if]');if(mi)mi.value='';
-}
-
-function clearIfSel(){
-  var rows=document.querySelectorAll('.if-row');
-  for(var i=0;i<rows.length;i++){rows[i].classList.remove('sel')}
-}
-
-function getSelectedIf(){
-  var sel=document.querySelector('.if-row.sel');
-  if(sel)return sel.dataset['if'];
-  var mi=document.querySelector('[name=manual_if]');
-  if(mi&&mi.value.trim())return mi.value.trim();
-  return '';
-}
-
-/* ========== 弹窗: 编辑 ========== */
-function openEdit(name){
-  var f=find(name);if(!f)return;
-  S._ed=name;
-  showM('编辑 · '+name,editFormH(f));
-}
-
-function editFormH(f){
-  var h='<form id="fm" onsubmit="return saveF(event)">';
-  h+='<div class="fg"><label>网卡</label><input value="'+e(f.interface)+'" readonly></div>';
-  h+='<div class="fg"><label>账号</label><input name="username" value="'+e(f.username)+'" required></div>';
-  h+='<div class="fg"><label>密码</label><input name="password" type="password" value="'+e(f.password)+'" required></div>';
-  h+='<div class="r2"><div class="fg"><label>检查间隔 ms</label><input name="ci" type="number" value="'+(f.check_interval||0)+'" min="0"></div>';
-  h+='<div class="fg"><label>重试间隔 ms</label><input name="ri" type="number" value="'+(f.retry_interval??0)+'" min="-1"></div></div>';
-  h+='<div class="r2"><div class="fg"><label>最大重试次数</label><input name="mr" type="number" value="'+(f.max_retries||0)+'" min="0"></div>';
-  h+='<div class="fg"><label>DNS</label><input name="dns" value="'+e(f.dns_address||'')+'"></div></div>';
-  h+='<div class="mf"><button type="button" class="btn" onclick="closeM()">取消</button><button type="submit" class="btn btn-p">保存</button></div></form>';
-  return h;
-}
-
-/* ========== 保存 ========== */
-function saveF(ev){
-  ev.preventDefault();var fd=new FormData(document.getElementById('fm'));
-  var iface=S._ed?S._ed:getSelectedIf();
-  if(!iface){toast('请选择或输入网卡名');return false}
-  var d={interface:iface,username:fd.get('username').trim(),password:fd.get('password'),check_interval:Number(fd.get('ci'))||0,retry_interval:Number(fd.get('ri'))||0,max_retries:Number(fd.get('mr'))||0,bind_interface:iface,dns_address:fd.get('dns').trim()};
-  if(S._ed){
-    pu('/api/interfaces/'+S._ed,d).then(function(){toast('已更新');closeM();load().then(rList)}).catch(function(e){toast('更新失败: '+e.message)});
-  }else{
-    if(find(iface)){toast('网卡已存在');return false}
-    p('/api/interfaces',d).then(function(){toast('已添加');closeM();load().then(rList)}).catch(function(e){toast('添加失败: '+e.message)});
-  }
-  return false;
-}
-
-function delIf(name){
-  showM('确认删除','<p style="margin-bottom:12px">删除网口 <b>'+e(name)+'</b> 及其配置？</p><div class="mf"><button class="btn" onclick="closeM()">取消</button><button class="btn btn-d" onclick="doDel(\''+e(name)+'\')">删除</button></div>');
-}
-function doDel(name){
-  dl('/api/interfaces/'+name).then(function(){toast('已删除');closeM();load().then(rList)}).catch(function(e){toast('删除失败: '+e.message)});
-}
-
-/* ========== UI工具 ========== */
-function showM(t,b){document.getElementById('md').innerHTML='<div class="mh"><h2>'+t+'</h2><button class="btn" onclick="closeM()" style="border:none;padding:2px 6px">✕</button></div><div class="mb">'+b+'</div>';document.getElementById('ov').classList.add('show')}
-function closeM(){document.getElementById('ov').classList.remove('show')}
-function toast(m){var w=document.getElementById('tw'),el=document.createElement('div');el.className='toast';el.textContent=m;w.appendChild(el);setTimeout(function(){el.remove()},3000)}
-function e(s){if(!s)return'';var d=document.createElement('div');d.textContent=s;return d.innerHTML}
-function ago(iso){var s=Math.floor((Date.now()-new Date(iso).getTime())/1000);if(s<0)return'刚刚';if(s<60)return s+'秒前';if(s<3600)return Math.floor(s/60)+'分钟前';if(s<86400)return Math.floor(s/3600)+'小时前';return Math.floor(s/86400)+'天前'}
-
-/* ========== Tab切换 ========== */
-document.getElementById('tabs').addEventListener('click',function(ev){
-  var b=ev.target.closest('.tab');if(!b)return;var t=b.dataset.t;if(t===S.t)return;
-  var tabs=document.querySelectorAll('.tab');for(var i=0;i<tabs.length;i++)tabs[i].classList.toggle('on',tabs[i].dataset.t===t);
-  document.getElementById('v-'+S.t).style.display='none';document.getElementById('v-'+t).style.display='';S.t=t;
-  if(t==='more'){loadLogs().then(rMore)}
-});
-
-/* ========== 启动 ========== */
-load().then(function(){
-  rList();
-  setInterval(function(){if(S.t==='list')load().then(rList)},15000);
-});
 </script>
 </body>
 </html>
