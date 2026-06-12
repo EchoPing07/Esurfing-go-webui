@@ -85,11 +85,12 @@ func main() {
 
 	fileServer := http.FileServer(http.FS(webSub))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" && r.URL.Path != "/favicon.ico" && r.URL.Path != "/icon.svg" {
+		switch r.URL.Path {
+		case "/", "/favicon.ico", "/icon.svg", "/alpine.min.js":
+			fileServer.ServeHTTP(w, r)
+		default:
 			http.NotFound(w, r)
-			return
 		}
-		fileServer.ServeHTTP(w, r)
 	})
 
 	srv := &http.Server{
